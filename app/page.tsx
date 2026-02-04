@@ -1,6 +1,15 @@
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
-  // Always redirect to login - client-side will handle dashboard redirect if logged in
-  redirect('/login')
+  const router = useRouter()
+
+  useEffect(() => {
+    // Immediate redirect on client side
+    router.replace('/login')
+  }, [router])
+
+  return null
 }
