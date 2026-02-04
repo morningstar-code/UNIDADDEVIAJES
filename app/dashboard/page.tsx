@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -39,7 +40,16 @@ export default function DashboardPage() {
           alignItems: 'center',
         }}
       >
-        <h1 style={{ margin: 0 }}>INDOTEL - Unidad de Viajes</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Image
+            src="/indotel-logo.jpg"
+            alt="INDOTEL Logo"
+            width={60}
+            height={60}
+            style={{ objectFit: 'contain' }}
+          />
+          <h1 style={{ margin: 0 }}>INDOTEL - Unidad de Viajes</h1>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span>{user.name || user.email}</span>
           <span style={{ color: '#666' }}>({user.role})</span>

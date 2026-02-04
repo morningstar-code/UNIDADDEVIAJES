@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Profile {
   id: string
@@ -96,15 +97,27 @@ export default function ProfileDetailPage() {
           backgroundColor: 'white',
           padding: '1rem 2rem',
           borderBottom: '1px solid #ddd',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
         }}
       >
-        <Link
-          href="/dashboard/profiles"
-          style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-        >
-          ← Perfiles
-        </Link>
-        <h1 style={{ margin: '1rem 0 0 0' }}>{profile.fullName || profile.primaryEmail}</h1>
+        <Image
+          src="/indotel-logo.jpg"
+          alt="INDOTEL Logo"
+          width={50}
+          height={50}
+          style={{ objectFit: 'contain' }}
+        />
+        <div>
+          <Link
+            href="/dashboard/profiles"
+            style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
+          >
+            ← Perfiles
+          </Link>
+          <h1 style={{ margin: '1rem 0 0 0' }}>{profile.fullName || profile.primaryEmail}</h1>
+        </div>
       </header>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1rem' }}>

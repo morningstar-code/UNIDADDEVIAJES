@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Profile {
   id: string
@@ -70,14 +71,23 @@ export default function ProfilesPage() {
           alignItems: 'center',
         }}
       >
-        <div>
-          <Link
-            href="/dashboard"
-            style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-          >
-            ← Dashboard
-          </Link>
-          <h1 style={{ margin: 0, display: 'inline' }}>Perfiles</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Image
+            src="/indotel-logo.jpg"
+            alt="INDOTEL Logo"
+            width={50}
+            height={50}
+            style={{ objectFit: 'contain' }}
+          />
+          <div>
+            <Link
+              href="/dashboard"
+              style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
+            >
+              ← Dashboard
+            </Link>
+            <h1 style={{ margin: 0, display: 'inline' }}>Perfiles</h1>
+          </div>
         </div>
       </header>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>

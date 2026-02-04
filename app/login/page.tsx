@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -59,9 +60,16 @@ export default function LoginPage() {
           maxWidth: '400px',
         }}
       >
-        <h1 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-          INDOTEL - Unidad de Viajes
-        </h1>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <Image
+            src="/indotel-logo.jpg"
+            alt="INDOTEL Logo"
+            width={80}
+            height={80}
+            style={{ objectFit: 'contain', marginBottom: '1rem' }}
+          />
+          <h1 style={{ margin: 0 }}>INDOTEL - Unidad de Viajes</h1>
+        </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <label

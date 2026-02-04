@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface CaseDetail {
   id: string
@@ -142,18 +143,30 @@ export default function CaseDetailPage() {
           backgroundColor: 'white',
           padding: '1rem 2rem',
           borderBottom: '1px solid #ddd',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
         }}
       >
-        <Link
-          href="/dashboard/bandeja"
-          style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-        >
-          ← Bandeja
-        </Link>
-        <h1 style={{ margin: '1rem 0 0 0' }}>
-          Caso: {caseDetail.destinoPais}
-          {caseDetail.destinoCiudad && `, ${caseDetail.destinoCiudad}`}
-        </h1>
+        <Image
+          src="/indotel-logo.jpg"
+          alt="INDOTEL Logo"
+          width={50}
+          height={50}
+          style={{ objectFit: 'contain' }}
+        />
+        <div>
+          <Link
+            href="/dashboard/bandeja"
+            style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
+          >
+            ← Bandeja
+          </Link>
+          <h1 style={{ margin: '1rem 0 0 0' }}>
+            Caso: {caseDetail.destinoPais}
+            {caseDetail.destinoCiudad && `, ${caseDetail.destinoCiudad}`}
+          </h1>
+        </div>
       </header>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
