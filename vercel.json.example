@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/intake/subscription/renew",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

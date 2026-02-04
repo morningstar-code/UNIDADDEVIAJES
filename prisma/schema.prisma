@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  VIAJES_ANALISTA
+  JEFE
+  FINANZAS
+  RRHH
+}
+
+enum CaseSource {
+  EMAIL_AUTOMATION
+  MANUAL
+}
+
+enum CaseStatus {
+  RECEIVED
+  DOCS_VALIDATION
+  TECH_REVIEW
+  MANAGER_APPROVAL
+  FINANCE_APPROVAL
+  HR_APPROVAL
+  APPROVED
+  REJECTED
+  NEEDS_INFO
+  CLOSED
+}
+
+enum WorkflowStep {
+  DOCS_VALIDATION
+  TECH_REVIEW
+  MANAGER_APPROVAL
+  FINANCE_APPROVAL
+  HR_APPROVAL
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  CEDULA
+  PASAPORTE
+  FOTO
+  CARTA_INVITACION
+  AGENDA
+  TICKET
+  OTRO
+}
+
+enum ProcessedMessageStatus {
+  OK
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  roleId       String
+  role         Role     @relation(fields: [roleId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdCases     Case[]       @relation("CaseCreator")
+  assignedTasks    Task[]
+  auditLogs        AuditLog[]
+  processedMessages ProcessedMessage[]
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  permissions String[] // Array of permission strings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+  tasks Task[]
+}
+
+model Profile {
+  id              String    @id @default(uuid())
+  primaryEmail    String    @unique // Normalized: lowercase(trim())
+  fullName        String?
+  cedula          String?
+  passportNumber  String?
+  passportCountry String?
+  phone           String?
+  cargo           String?
+  departamento    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  cases      Case[]
+  documents  Document[]
+  auditLogs  AuditLog[]
+
+  @@index([primaryEmail])
+  @@index([cedula])
+  @@index([passportNumber])
+}
+
+model Case {
+  id                   String      @id @default(uuid())
+  profileId            String
+  profile              Profile      @relation(fields: [profileId], references: [id])
+  createdByUserId      String?
+  createdBy            User?        @relation("CaseCreator", fields: [createdByUserId], references: [id])
+  source               CaseSource
+  status               CaseStatus   @default(RECEIVED)
+  destinoPais          String?
+  destinoCiudad        String?
+  fechaSalida          DateTime?
+  fechaRetorno         DateTime?
+  motivo               String?
+  evento               String?
+  institucionOrganizadora String?
+  montoEstimado        Decimal?     @db.Decimal(15, 2)
+  moneda               String?      @default("USD")
+  contenidoRaw         String?     @db.Text
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  tasks      Task[]
+  documents  Document[]
+  auditLogs  AuditLog[]
+
+  @@index([profileId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Task {
+  id            String        @id @default(uuid())
+  caseId        String
+  case          Case          @relation(fields: [caseId], references: [id])
+  step          WorkflowStep
+  assignedRoleId String?
+  assignedRole  Role?         @relation(fields: [assignedRoleId], references: [id])
+  assignedUserId String?
+  assignedUser  User?         @relation(fields: [assignedUserId], references: [id])
+  status        TaskStatus    @default(PENDING)
+  dueAt         DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  completedAt   DateTime?
+
+  @@index([caseId])
+  @@index([assignedUserId])
+  @@index([assignedRoleId])
+  @@index([status])
+}
+
+model Document {
+  id                    String       @id @default(uuid())
+  profileId             String?
+  profile               Profile?     @relation(fields: [profileId], references: [id])
+  caseId                String?
+  case                  Case?        @relation(fields: [caseId], references: [id])
+  docType               DocumentType
+  originalFilename      String
+  mimeType              String
+  sizeBytes             Int
+  blobUrl               String
+  blobPathname          String
+  checksumSha256        String?
+  isCurrent             Boolean      @default(true)
+  sourceEmailMessageId  String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([profileId])
+  @@index([caseId])
+  @@index([docType])
+}
+
+model ProcessedMessage {
+  id                String                 @id @default(uuid())
+  internetMessageId String                 @unique
+  graphMessageId    String?                @unique
+  processedAt       DateTime               @default(now())
+  status            ProcessedMessageStatus
+  error             String?                @db.Text
+  processedByUserId String?
+  processedBy       User?                  @relation(fields: [processedByUserId], references: [id])
+
+  @@index([internetMessageId])
+  @@index([graphMessageId])
+  @@index([processedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorUserId String?
+  actor      User?    @relation(fields: [actorUserId], references: [id])
+  caseId     String?
+  case       Case?    @relation(fields: [caseId], references: [id])
+  profileId  String?
+  profile    Profile? @relation(fields: [profileId], references: [id])
+  action     String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([caseId])
+  @@index([profileId])
+  @@index([action])
+  @@index([createdAt])
+}
