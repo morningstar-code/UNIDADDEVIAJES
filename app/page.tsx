@@ -7,9 +7,12 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    // Immediate redirect on client side
     router.replace('/login')
   }, [router])
 
-  return null
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <p>Redirecting to login...</p>
+    </div>
+  )
 }
