@@ -90,14 +90,18 @@ export function classifyDocumentType(filename: string, mimeType: string): Docume
 }
 
 export function isBaseDocument(docType: DocumentType): boolean {
-  return [DocumentType.CEDULA, DocumentType.PASAPORTE, DocumentType.FOTO].includes(docType)
+  return (
+    docType === DocumentType.CEDULA ||
+    docType === DocumentType.PASAPORTE ||
+    docType === DocumentType.FOTO
+  )
 }
 
 export function isCaseDocument(docType: DocumentType): boolean {
-  return [
-    DocumentType.CARTA_INVITACION,
-    DocumentType.AGENDA,
-    DocumentType.TICKET,
-    DocumentType.OTRO,
-  ].includes(docType)
+  return (
+    docType === DocumentType.CARTA_INVITACION ||
+    docType === DocumentType.AGENDA ||
+    docType === DocumentType.TICKET ||
+    docType === DocumentType.OTRO
+  )
 }

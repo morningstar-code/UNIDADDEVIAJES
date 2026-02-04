@@ -46,7 +46,9 @@ export async function uploadAttachmentToBlob(
   }
 
   // Upload to Vercel Blob
-  const blob = await put(pathname, buffer, {
+  // Convert Buffer to Blob for Vercel Blob API
+  const blobData = new Blob([new Uint8Array(buffer)], { type: contentType })
+  const blob = await put(pathname, blobData, {
     access: 'public',
     contentType,
     token: process.env.BLOB_READ_WRITE_TOKEN,
