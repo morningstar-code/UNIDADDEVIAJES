@@ -31,6 +31,8 @@ interface Profile {
     destinoCiudad: string | null
     fechaSalida: string | null
     fechaRetorno: string | null
+    montoEstimado: number | null
+    moneda: string | null
     createdAt: string
   }>
 }
@@ -42,6 +44,27 @@ export default function ProfileDetailPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [activeTab, setActiveTab] = useState<'docs' | 'cases'>('docs')
+  const [viewedCases, setViewedCases] = useState<Set<string>>(new Set())
+
+  // Load viewed cases from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const viewed = localStorage.getItem('viewedCases')
+      if (viewed) {
+        setViewedCases(new Set(JSON.parse(viewed)))
+      }
+    }
+  }, [])
+
+  // Mark case as viewed when clicked
+  const markCaseAsViewed = (caseId: string) => {
+    const newViewed = new Set(viewedCases)
+    newViewed.add(caseId)
+    setViewedCases(newViewed)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('viewedCases', JSON.stringify(Array.from(newViewed)))
+    }
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -153,6 +176,35 @@ export default function ProfileDetailPage() {
               </div>
             )}
           </div>
+          {/* Total Amount */}
+          {(() => {
+            const casesWithAmount = profile.cases.filter((c) => c.montoEstimado)
+            if (casesWithAmount.length > 0) {
+              const total = casesWithAmount.reduce((sum, c) => {
+                return sum + Number(c.montoEstimado || 0)
+              }, 0)
+              const currency = casesWithAmount[0]?.moneda || 'USD'
+              return (
+                <div
+                  style={{
+                    marginTop: '1rem',
+                    padding: '1rem',
+                    backgroundColor: '#e7f5e7',
+                    borderRadius: '4px',
+                    border: '2px solid #28a745',
+                  }}
+                >
+                  <strong style={{ fontSize: '1.1rem', color: '#28a745' }}>
+                    💰 Monto Total Solicitado: {total.toLocaleString()} {currency}
+                  </strong>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+                    Suma de todos los viajes de esta persona ({casesWithAmount.length} viaje{casesWithAmount.length !== 1 ? 's' : ''} con monto)
+                  </p>
+                </div>
+              )
+            }
+            return null
+          })()}
         </div>
 
         <div style={{ backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden' }}>
@@ -235,44 +287,78 @@ export default function ProfileDetailPage() {
                   <p>No hay viajes registrados</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {profile.cases.map((caseItem) => (
-                      <Link
-                        key={caseItem.id}
-                        href={`/dashboard/cases/${caseItem.id}`}
-                        style={{
-                          padding: '1rem',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          textDecoration: 'none',
-                          color: 'inherit',
-                          display: 'block',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <div>
-                            <strong>
-                              {caseItem.destinoPais}
-                              {caseItem.destinoCiudad && `, ${caseItem.destinoCiudad}`}
-                            </strong>
-                            <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                              {caseItem.fechaSalida && `Salida: ${new Date(caseItem.fechaSalida).toLocaleDateString()}`}
-                              {caseItem.fechaRetorno && ` | Retorno: ${new Date(caseItem.fechaRetorno).toLocaleDateString()}`}
-                            </p>
+                    {profile.cases.map((caseItem) => {
+                      const isViewed = viewedCases.has(caseItem.id)
+                      return (
+                        <Link
+                          key={caseItem.id}
+                          href={`/dashboard/cases/${caseItem.id}`}
+                          onClick={() => markCaseAsViewed(caseItem.id)}
+                          style={{
+                            padding: '1rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            display: 'block',
+                            backgroundColor: isViewed ? '#f9f9f9' : 'white',
+                            opacity: isViewed ? 0.8 : 1,
+                            borderLeft: isViewed ? '3px solid #999' : '3px solid #0066cc',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateX(4px)'
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateX(0)'
+                            e.currentTarget.style.boxShadow = 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <strong>
+                                  {caseItem.destinoPais}
+                                  {caseItem.destinoCiudad && `, ${caseItem.destinoCiudad}`}
+                                </strong>
+                                {!isViewed && (
+                                  <span style={{ fontSize: '0.8rem', color: '#0066cc' }}>🔵</span>
+                                )}
+                                {isViewed && (
+                                  <span style={{ fontSize: '0.8rem', color: '#999' }}>✓</span>
+                                )}
+                              </div>
+                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                                📅 Enviado: {new Date(caseItem.createdAt).toLocaleDateString('es-DO', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                                {caseItem.fechaSalida && `✈️ Salida: ${new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}`}
+                                {caseItem.fechaRetorno && ` | Retorno: ${new Date(caseItem.fechaRetorno).toLocaleDateString('es-DO')}`}
+                              </p>
+                            </div>
+                            <span
+                              style={{
+                                padding: '0.25rem 0.75rem',
+                                backgroundColor: '#0066cc',
+                                color: 'white',
+                                borderRadius: '4px',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                              }}
+                            >
+                              {caseItem.status}
+                            </span>
                           </div>
-                          <span
-                            style={{
-                              padding: '0.25rem 0.75rem',
-                              backgroundColor: '#0066cc',
-                              color: 'white',
-                              borderRadius: '4px',
-                              fontSize: '0.85rem',
-                            }}
-                          >
-                            {caseItem.status}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
               </div>

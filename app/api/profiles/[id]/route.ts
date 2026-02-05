@@ -19,7 +19,16 @@ export async function GET(
         orderBy: { createdAt: 'desc' },
       },
       cases: {
-        include: {
+        select: {
+          id: true,
+          status: true,
+          destinoPais: true,
+          destinoCiudad: true,
+          fechaSalida: true,
+          fechaRetorno: true,
+          montoEstimado: true,
+          moneda: true,
+          createdAt: true,
           documents: {
             where: { isCurrent: true },
             orderBy: { createdAt: 'desc' },

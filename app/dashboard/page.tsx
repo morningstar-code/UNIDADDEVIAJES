@@ -111,6 +111,26 @@ export default function DashboardPage() {
               Buscar y gestionar perfiles de solicitantes
             </p>
           </Link>
+          <Link
+            href="/dashboard/solicitudes"
+            style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'block',
+            }}
+          >
+            <h2 style={{ marginBottom: '0.5rem' }}>
+              Solicitudes Entrantes
+              <span style={{ fontSize: '1rem', color: '#dc3545', marginLeft: '0.5rem' }}>🔔</span>
+            </h2>
+            <p style={{ color: '#666', margin: 0 }}>
+              Ver todas las solicitudes recibidas con fechas y detalles
+            </p>
+          </Link>
         </div>
 
         {/* Public Request Link Card */}

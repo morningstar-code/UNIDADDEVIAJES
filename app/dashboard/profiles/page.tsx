@@ -12,6 +12,12 @@ interface Profile {
   fullName: string | null
   cedula: string | null
   passportNumber: string | null
+  phone: string | null
+  departamento: string | null
+  cargo: string | null
+  casesCount: number
+  documentsCount: number
+  totalAmount: number
 }
 
 export default function ProfilesPage() {
@@ -150,24 +156,89 @@ export default function ProfilesPage() {
                   textDecoration: 'none',
                   color: 'inherit',
                   display: 'block',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
                 }}
               >
-                <h3 style={{ marginBottom: '0.5rem' }}>
-                  {profile.fullName || profile.primaryEmail}
-                </h3>
-                <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                  {profile.primaryEmail}
-                </p>
-                {profile.cedula && (
-                  <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                    Cédula: {profile.cedula}
-                  </p>
-                )}
-                {profile.passportNumber && (
-                  <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                    Pasaporte: {profile.passportNumber}
-                  </p>
-                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ marginBottom: '0.5rem', fontSize: '1.2rem' }}>
+                      {profile.fullName || profile.primaryEmail}
+                    </h3>
+                    <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
+                      📧 {profile.primaryEmail}
+                    </p>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                      {profile.cedula && (
+                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                          🆔 Cédula: {profile.cedula}
+                        </span>
+                      )}
+                      {profile.phone && (
+                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                          📞 {profile.phone}
+                        </span>
+                      )}
+                      {profile.departamento && (
+                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                          🏢 {profile.departamento}
+                        </span>
+                      )}
+                      {profile.cargo && (
+                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                          💼 {profile.cargo}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: '0.5rem',
+                      minWidth: '200px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        justifyContent: 'flex-end',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                        ✈️ {profile.casesCount} viaje{profile.casesCount !== 1 ? 's' : ''}
+                      </span>
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                        📎 {profile.documentsCount} doc{profile.documentsCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {profile.totalAmount > 0 && (
+                      <span
+                        style={{
+                          fontSize: '1rem',
+                          fontWeight: '600',
+                          color: '#28a745',
+                          backgroundColor: '#e7f5e7',
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        💰 Total: ${profile.totalAmount.toLocaleString()} USD
+                      </span>
+                    )}
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
