@@ -286,16 +286,16 @@ export default function SolicitudesPage() {
                   href={`/dashboard/cases/${caseItem.id}`}
                   onClick={() => markCaseAsViewed(caseItem.id)}
                   style={{
-                    backgroundColor: isViewed ? '#f8f9fa' : 'white',
+                    backgroundColor: isViewed ? '#f5f5f5' : 'white',
                     padding: '1.5rem',
                     borderRadius: '8px',
-                    boxShadow: isViewed ? '0 1px 2px rgba(0,0,0,0.05)' : '0 2px 4px rgba(0,0,0,0.1)',
+                    boxShadow: isViewed ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
                     textDecoration: 'none',
                     color: 'inherit',
                     display: 'block',
+                    border: isViewed ? '1px solid #e0e0e0' : '1px solid transparent',
                     borderLeft: '4px solid',
                     borderLeftColor: getStatusColor(caseItem.status),
-                    opacity: isViewed ? 0.85 : 1,
                     transition: 'all 0.2s ease',
                   }}
                   onMouseEnter={(e) => {
@@ -314,7 +314,11 @@ export default function SolicitudesPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                      <h3 style={{ margin: 0, fontWeight: isViewed ? '500' : '600' }}>
+                      <h3 style={{ 
+                        margin: 0, 
+                        fontWeight: isViewed ? '400' : '600',
+                        color: isViewed ? '#666' : '#333',
+                      }}>
                         {caseItem.profile.fullName || caseItem.profile.primaryEmail}
                       </h3>
                       {caseItem.source === 'PUBLIC_FORM' && (
@@ -344,36 +348,40 @@ export default function SolicitudesPage() {
                         />
                       )}
                     </div>
-                    <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                    <p style={{ 
+                      margin: '0.25rem 0', 
+                      color: isViewed ? '#999' : '#666', 
+                      fontSize: '0.9rem' 
+                    }}>
                       {caseItem.profile.primaryEmail}
                       {caseItem.profile.cedula && ` • Cédula: ${caseItem.profile.cedula}`}
                     </p>
                     <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                       {caseItem.destinoPais && (
-                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ color: isViewed ? '#999' : '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span style={{ fontSize: '0.85rem' }}>📍</span>
                           {caseItem.destinoPais}
                           {caseItem.destinoCiudad && `, ${caseItem.destinoCiudad}`}
                         </span>
                       )}
                       {caseItem.fechaSalida && (
-                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ color: isViewed ? '#999' : '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span style={{ fontSize: '0.85rem' }}>📆</span>
                           Salida: {new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}
                         </span>
                       )}
                       {caseItem.montoEstimado && (
-                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ color: isViewed ? '#999' : '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <span style={{ fontSize: '0.85rem' }}>💵</span>
                           {caseItem.montoEstimado.toLocaleString()} {caseItem.moneda || 'USD'}
                         </span>
                       )}
-                      <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ color: isViewed ? '#999' : '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <span style={{ fontSize: '0.85rem' }}>📄</span>
                         {caseItem._count.documents} documento{caseItem._count.documents !== 1 ? 's' : ''}
                       </span>
                     </div>
-                    <p style={{ margin: '0.5rem 0 0 0', color: '#999', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <p style={{ margin: '0.5rem 0 0 0', color: isViewed ? '#bbb' : '#999', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <span style={{ fontSize: '0.75rem' }}>🕐</span>
                       Enviado {formatDate(caseItem.createdAt)}
                     </p>

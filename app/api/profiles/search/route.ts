@@ -15,9 +15,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ profiles: [] })
   }
 
+  // Check if search query looks like a case number (TRV-XXXX or just the ID part)
+  let caseId: string | null = null
+  if (q.toUpperCase().startsWith('TRV-')) {
+    // Extract the ID part after TRV-
+    const idPart = q.toUpperCase().replace('TRV-', '').trim()
+    if (idPart.length >= 4) {
+      // Search for cases that start with this ID part
+      const matchingCase = await prisma.case.findFirst({
+        where: {
+          id: {
+            startsWith: idPart.toLowerCase(),
+            mode: 'insensitive',
+          },
+        },
+        select: {
+          profileId: true,
+        },
+      })
+      if (matchingCase) {
+        caseId = matchingCase.profileId
+      }
+    }
+  } else if (q.length >= 8) {
+    // Try to find case by ID directly
+    const matchingCase = await prisma.case.findFirst({
+      where: {
+        id: {
+          startsWith: q.toLowerCase(),
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        profileId: true,
+      },
+    })
+    if (matchingCase) {
+      caseId = matchingCase.profileId
+    }
+  }
+
   const profiles = await prisma.profile.findMany({
     where: {
       OR: [
+        ...(caseId ? [{ id: caseId }] : []),
         { primaryEmail: { contains: q, mode: 'insensitive' } },
         { fullName: { contains: q, mode: 'insensitive' } },
         { cedula: { contains: q, mode: 'insensitive' } },

@@ -212,7 +212,6 @@ export default function DashboardPage() {
           >
             <h2 style={{ marginBottom: '0.5rem' }}>
               Solicitudes Entrantes
-              <span style={{ fontSize: '1rem', color: '#dc3545', marginLeft: '0.5rem' }}>🔔</span>
               {newRequestsCount > 0 && (
                 <span
                   style={{
