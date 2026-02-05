@@ -5,65 +5,66 @@ import { upsertProfileByCedulaOrEmail } from '@/lib/public/upsert-profile'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
 import { randomUUID } from 'crypto'
 
-interface DocumentUpload {
-  filename: string
-  contentType: string
-  data: string // base64
-  docType: DocumentType
-}
-
-interface SubmitRequestData {
-  // Personal data
-  firstName: string
-  lastName: string
-  email: string
-  phone?: string
-  departamento?: string
-  cargo?: string
-  cedula?: string
-
-  // Travel data
-  destinationCountry: string
-  destinationCity: string
-  departureDate: string
-  returnDate: string
-  organizerInstitution?: string
-  eventName?: string
-  travelReason: string
-
-  // Administrative data
-  amount?: number
-  currency?: string
-  costCenter?: string
-  notes?: string
-
-  // Documents
-  documents: DocumentUpload[]
-
-  // Idempotency
-  clientGeneratedId: string
-}
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   try {
-    const data: SubmitRequestData = await request.json()
+    // Parse FormData
+    const formData = await request.formData()
+    
+    // Extract form fields
+    const firstName = formData.get('firstName') as string
+    const lastName = formData.get('lastName') as string
+    const email = formData.get('email') as string
+    const phone = formData.get('phone') as string | null
+    const departamento = formData.get('departamento') as string | null
+    const cargo = formData.get('cargo') as string | null
+    const cedula = formData.get('cedula') as string | null
+    const destinationCountry = formData.get('destinationCountry') as string
+    const destinationCity = formData.get('destinationCity') as string
+    const departureDate = formData.get('departureDate') as string
+    const returnDate = formData.get('returnDate') as string
+    const organizerInstitution = formData.get('organizerInstitution') as string | null
+    const eventName = formData.get('eventName') as string | null
+    const travelReason = formData.get('travelReason') as string
+    const amount = formData.get('amount') as string | null
+    const currency = formData.get('currency') as string | null
+    const costCenter = formData.get('costCenter') as string | null
+    const notes = formData.get('notes') as string | null
+    const clientGeneratedId = formData.get('clientGeneratedId') as string
+    
+    // Extract documents
+    const documentCount = parseInt(formData.get('documentCount') as string || '0')
+    const documents: Array<{ file: File; docType: DocumentType }> = []
+    
+    for (let i = 0; i < documentCount; i++) {
+      const file = formData.get(`document_${i}`) as File
+      const docType = formData.get(`document_${i}_docType`) as string
+      if (file) {
+        documents.push({
+          file,
+          docType: docType as DocumentType,
+        })
+      }
+    }
 
     // Validate required fields
-    if (!data.firstName || !data.lastName || !data.email) {
+    if (!firstName || !lastName || !email) {
       return NextResponse.json(
         { error: 'Nombre, apellido y email son requeridos' },
         { status: 400 }
       )
     }
 
-    if (!data.destinationCountry || !data.destinationCity) {
+    if (!destinationCountry || !destinationCity) {
       return NextResponse.json(
         { error: 'País y ciudad de destino son requeridos' },
         { status: 400 }
       )
     }
 
-    if (!data.departureDate || !data.returnDate) {
+    if (!departureDate || !returnDate) {
       return NextResponse.json(
         { error: 'Fechas de salida y retorno son requeridas' },
         { status: 400 }
@@ -71,15 +72,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate dates
-    const departureDate = new Date(data.departureDate)
-    const returnDate = new Date(data.returnDate)
-    if (isNaN(departureDate.getTime()) || isNaN(returnDate.getTime())) {
+    const departureDateObj = new Date(departureDate)
+    const returnDateObj = new Date(returnDate)
+    if (isNaN(departureDateObj.getTime()) || isNaN(returnDateObj.getTime())) {
       return NextResponse.json(
         { error: 'Fechas inválidas' },
         { status: 400 }
       )
     }
-    if (returnDate < departureDate) {
+    if (returnDateObj < departureDateObj) {
       return NextResponse.json(
         { error: 'La fecha de retorno debe ser posterior a la fecha de salida' },
         { status: 400 }
@@ -87,9 +88,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check idempotency
-    if (data.clientGeneratedId) {
+    if (clientGeneratedId) {
       const existingCase = await prisma.case.findUnique({
-        where: { clientGeneratedId: data.clientGeneratedId },
+        where: { clientGeneratedId },
       })
       if (existingCase) {
         return NextResponse.json({
@@ -103,13 +104,13 @@ export async function POST(request: NextRequest) {
 
     // Upsert profile
     const profileResult = await upsertProfileByCedulaOrEmail({
-      email: data.email,
-      cedula: data.cedula,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-      departamento: data.departamento,
-      cargo: data.cargo,
+      email,
+      cedula: cedula || undefined,
+      firstName,
+      lastName,
+      phone: phone || undefined,
+      departamento: departamento || undefined,
+      cargo: cargo || undefined,
     })
 
     // Create case
@@ -118,18 +119,18 @@ export async function POST(request: NextRequest) {
         profileId: profileResult.profileId,
         source: CaseSource.PUBLIC_FORM,
         status: CaseStatus.RECEIVED,
-        destinoPais: data.destinationCountry,
-        destinoCiudad: data.destinationCity,
-        fechaSalida: departureDate,
-        fechaRetorno: returnDate,
-        motivo: data.travelReason,
-        evento: data.eventName,
-        institucionOrganizadora: data.organizerInstitution,
-        montoEstimado: data.amount ? parseFloat(data.amount.toString()) : undefined,
-        moneda: data.currency || 'USD',
-        centroCosto: data.costCenter,
-        observaciones: data.notes,
-          clientGeneratedId: data.clientGeneratedId || randomUUID(),
+        destinoPais: destinationCountry,
+        destinoCiudad: destinationCity,
+        fechaSalida: departureDateObj,
+        fechaRetorno: returnDateObj,
+        motivo: travelReason,
+        evento: eventName || undefined,
+        institucionOrganizadora: organizerInstitution || undefined,
+        montoEstimado: amount ? parseFloat(amount) : undefined,
+        moneda: currency || 'USD',
+        centroCosto: costCenter || undefined,
+        observaciones: notes || undefined,
+        clientGeneratedId: clientGeneratedId || randomUUID(),
       },
     })
 
@@ -151,10 +152,11 @@ export async function POST(request: NextRequest) {
 
     // Upload documents
     const uploadedDocuments = []
-    for (const doc of data.documents || []) {
+    for (const doc of documents) {
       try {
-        // Decode base64
-        const buffer = Buffer.from(doc.data, 'base64')
+        // Convert File to Buffer
+        const arrayBuffer = await doc.file.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
 
         // Determine if it's a base document (cedula/pasaporte) or case document
         const isBaseDoc = doc.docType === DocumentType.CEDULA || doc.docType === DocumentType.PASAPORTE
@@ -162,9 +164,9 @@ export async function POST(request: NextRequest) {
         const uploadResult = await uploadAttachmentToBlob({
           profileId: isBaseDoc ? profileResult.profileId : undefined,
           caseId: caseRecord.id,
-          originalFilename: doc.filename,
+          originalFilename: doc.file.name,
           buffer,
-          contentType: doc.contentType,
+          contentType: doc.file.type,
           docType: doc.docType,
         })
 
@@ -173,8 +175,8 @@ export async function POST(request: NextRequest) {
             profileId: isBaseDoc ? profileResult.profileId : undefined,
             caseId: caseRecord.id,
             docType: doc.docType,
-            originalFilename: doc.filename,
-            mimeType: doc.contentType,
+            originalFilename: doc.file.name,
+            mimeType: doc.file.type,
             sizeBytes: buffer.length,
             blobUrl: uploadResult.blobUrl,
             blobPathname: uploadResult.blobPathname,
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
 
         uploadedDocuments.push(document.id)
       } catch (error) {
-        console.error(`Error uploading document ${doc.filename}:`, error)
+        console.error(`Error uploading document ${doc.file.name}:`, error)
         // Continue with other documents
       }
     }

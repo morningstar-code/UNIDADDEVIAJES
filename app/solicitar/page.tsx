@@ -141,50 +141,64 @@ export default function SolicitarPage() {
     setLoading(true)
 
     try {
-      // Convert documents to base64
-      const documentPromises = documents.map((doc) => {
-        return new Promise<{
-          filename: string
-          contentType: string
-          data: string
-          docType: DocumentType
-        }>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const base64 = (reader.result as string).split(',')[1]
-            resolve({
-              filename: doc.file.name,
-              contentType: doc.file.type,
-              data: base64,
-              docType: doc.docType,
-            })
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(doc.file)
-        })
-      })
-
-      const documentData = await Promise.all(documentPromises)
-
       // Generate client ID for idempotency
       const clientGeneratedId = `public-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
+      // Use FormData instead of JSON to handle large files
+      const formDataToSend = new FormData()
+      
+      // Add form fields
+      formDataToSend.append('firstName', formData.firstName)
+      formDataToSend.append('lastName', formData.lastName)
+      formDataToSend.append('email', formData.email)
+      formDataToSend.append('phone', formData.phone || '')
+      formDataToSend.append('departamento', formData.departamento || '')
+      formDataToSend.append('cargo', formData.cargo || '')
+      formDataToSend.append('cedula', formData.cedula || '')
+      formDataToSend.append('destinationCountry', formData.destinationCountry)
+      formDataToSend.append('destinationCity', formData.destinationCity)
+      formDataToSend.append('departureDate', formData.departureDate)
+      formDataToSend.append('returnDate', formData.returnDate)
+      formDataToSend.append('organizerInstitution', formData.organizerInstitution || '')
+      formDataToSend.append('eventName', formData.eventName || '')
+      formDataToSend.append('travelReason', formData.travelReason)
+      formDataToSend.append('amount', formData.amount || '')
+      formDataToSend.append('currency', formData.currency || 'USD')
+      formDataToSend.append('costCenter', formData.costCenter || '')
+      formDataToSend.append('notes', formData.notes || '')
+      formDataToSend.append('clientGeneratedId', clientGeneratedId)
+
+      // Add documents as files
+      documents.forEach((doc, index) => {
+        formDataToSend.append(`document_${index}`, doc.file)
+        formDataToSend.append(`document_${index}_docType`, doc.docType)
+      })
+      formDataToSend.append('documentCount', documents.length.toString())
+
       const response = await fetch('/api/public/submit-request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          amount: formData.amount ? parseFloat(formData.amount) : undefined,
-          documents: documentData,
-          clientGeneratedId,
-        }),
+        body: formDataToSend,
+        // Don't set Content-Type header - browser will set it with boundary
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.error || 'Error al enviar la solicitud')
+        const errorText = await response.text()
+        let errorMessage = 'Error al enviar la solicitud'
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.error || errorMessage
+        } catch {
+          // If response is not JSON, use the text
+          if (response.status === 413) {
+            errorMessage = 'Los archivos son demasiado grandes. Por favor, reduce el tamaño de los documentos o sube menos archivos.'
+          } else {
+            errorMessage = errorText || errorMessage
+          }
+        }
+        throw new Error(errorMessage)
       }
+
+      const result = await response.json()
 
       // Redirect to success page
       router.push(`/solicitar/success?caseId=${result.caseId}&caseNumber=${result.caseNumber}`)
