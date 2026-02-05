@@ -55,7 +55,12 @@ export default function DashboardPage() {
               }
               
               if (newCount > 0) {
-                setNewRequestsCount((prev) => prev + newCount)
+                console.log(`Nueva solicitud detectada! Count: ${newCount}`)
+                setNewRequestsCount((prev) => {
+                  const total = prev + newCount
+                  console.log(`Total de nuevas solicitudes: ${total}`)
+                  return total
+                })
                 setShowNotification(true)
                 
                 // Hide notification after 5 seconds
@@ -81,21 +86,18 @@ export default function DashboardPage() {
       }
     }
 
-    // Initial check after 2 seconds (to avoid immediate false positives)
-    const initialTimeout = setTimeout(() => {
-      checkNewRequests()
-    }, 2000)
+    // Initial check immediately
+    checkNewRequests()
 
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission()
     }
 
-    // Check every 15 seconds
-    const interval = setInterval(checkNewRequests, 15000)
+    // Check every 5 seconds for faster detection
+    const interval = setInterval(checkNewRequests, 5000)
 
     return () => {
-      clearTimeout(initialTimeout)
       clearInterval(interval)
     }
   }, [user])
@@ -209,25 +211,28 @@ export default function DashboardPage() {
               position: 'relative',
             }}
           >
-            <h2 style={{ marginBottom: '0.5rem' }}>
+            <h2 style={{ marginBottom: '0.5rem', position: 'relative' }}>
               Solicitudes Entrantes
               {newRequestsCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
+                    top: '-8px',
+                    right: '-8px',
                     backgroundColor: '#dc3545',
                     color: 'white',
                     borderRadius: '50%',
-                    width: '24px',
+                    minWidth: '24px',
                     height: '24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '0.75rem',
                     fontWeight: 'bold',
+                    padding: '0 6px',
                     animation: showNotification ? 'pulse 1s infinite' : undefined,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    zIndex: 10,
                   }}
                 >
                   {newRequestsCount > 9 ? '9+' : newRequestsCount}
