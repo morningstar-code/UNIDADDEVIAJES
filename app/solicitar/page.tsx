@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { DocumentType } from '@prisma/client'
+import { countries, searchCountries } from '@/lib/data/countries'
 
 interface FormData {
   // Personal
@@ -62,9 +63,50 @@ export default function SolicitarPage() {
     notes: '',
   })
   const [documents, setDocuments] = useState<DocumentFile[]>([])
+  const [countrySuggestions, setCountrySuggestions] = useState<string[]>([])
+  const [showCountrySuggestions, setShowCountrySuggestions] = useState(false)
+  const countryInputRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar sugerencias al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        countryInputRef.current &&
+        !countryInputRef.current.contains(event.target as Node)
+      ) {
+        setShowCountrySuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    
+    // Si es el campo de país, mostrar sugerencias
+    if (field === 'destinationCountry') {
+      if (value.trim().length > 0) {
+        const suggestions = searchCountries(value)
+        setCountrySuggestions(suggestions.slice(0, 10)) // Mostrar máximo 10
+        setShowCountrySuggestions(suggestions.length > 0)
+      } else {
+        setCountrySuggestions([])
+        setShowCountrySuggestions(false)
+      }
+    }
+  }
+
+  const handleCountrySelect = (country: string) => {
+    setFormData((prev) => ({ ...prev, destinationCountry: country }))
+    setShowCountrySuggestions(false)
+    setCountrySuggestions([])
   }
 
   const handleDocumentAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -435,15 +477,24 @@ export default function SolicitarPage() {
           <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px' }}>
             <h2 style={{ marginTop: 0 }}>Datos del Viaje</h2>
             <div style={{ display: 'grid', gap: '1rem' }}>
-              <div>
+              <div style={{ position: 'relative' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                   País Destino *
                 </label>
                 <input
+                  ref={countryInputRef}
                   type="text"
                   value={formData.destinationCountry}
                   onChange={(e) => handleInputChange('destinationCountry', e.target.value)}
+                  onFocus={() => {
+                    if (formData.destinationCountry.trim().length > 0) {
+                      const suggestions = searchCountries(formData.destinationCountry)
+                      setCountrySuggestions(suggestions.slice(0, 10))
+                      setShowCountrySuggestions(suggestions.length > 0)
+                    }
+                  }}
                   required
+                  placeholder="Escribe para buscar país..."
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -451,6 +502,47 @@ export default function SolicitarPage() {
                     borderRadius: '4px',
                   }}
                 />
+                {showCountrySuggestions && countrySuggestions.length > 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      marginTop: '0.25rem',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    {countrySuggestions.map((country, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleCountrySelect(country)}
+                        onMouseDown={(e) => e.preventDefault()} // Prevenir blur del input
+                        style={{
+                          padding: '0.75rem',
+                          cursor: 'pointer',
+                          borderBottom: index < countrySuggestions.length - 1 ? '1px solid #eee' : 'none',
+                          backgroundColor: 'white',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f0f0f0'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'white'
+                        }}
+                      >
+                        {country}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
