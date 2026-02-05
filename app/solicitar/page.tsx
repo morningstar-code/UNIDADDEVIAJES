@@ -706,19 +706,43 @@ export default function SolicitarPage() {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                     Fecha Salida *
+                    <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem', fontWeight: 'normal' }}>
+                      (Mínimo 10 días desde hoy)
+                    </span>
                   </label>
                   <input
                     type="date"
                     value={formData.departureDate}
                     onChange={(e) => handleInputChange('departureDate', e.target.value)}
+                    min={(() => {
+                      const minDate = new Date()
+                      minDate.setDate(minDate.getDate() + 10)
+                      return minDate.toISOString().split('T')[0]
+                    })()}
                     required
                     style={{
                       width: '100%',
                       padding: '0.75rem',
-                      border: '1px solid #ddd',
+                      border: dateWarning ? '2px solid #ffc107' : '1px solid #ddd',
                       borderRadius: '4px',
+                      backgroundColor: dateWarning ? '#fffbf0' : 'white',
                     }}
                   />
+                  {dateWarning && (
+                    <p
+                      style={{
+                        margin: '0.5rem 0 0 0',
+                        color: '#856404',
+                        fontSize: '0.85rem',
+                        backgroundColor: '#fff3cd',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        border: '1px solid #ffc107',
+                      }}
+                    >
+                      {dateWarning}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
