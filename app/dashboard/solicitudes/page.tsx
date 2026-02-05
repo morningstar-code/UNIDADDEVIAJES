@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
@@ -37,22 +37,29 @@ export default function SolicitudesPage() {
   const [filter, setFilter] = useState<'all' | 'PUBLIC_FORM'>('all')
   const [unreadCount, setUnreadCount] = useState(0)
   const [lastCaseId, setLastCaseId] = useState<string | null>(null)
+  const [viewedCases, setViewedCases] = useState<Set<string>>(new Set())
 
+  // Load viewed cases from localStorage
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-      return
+    if (typeof window !== 'undefined') {
+      const viewed = localStorage.getItem('viewedRequests')
+      if (viewed) {
+        setViewedCases(new Set(JSON.parse(viewed)))
+      }
     }
+  }, [])
 
-    if (user) {
-      fetchCases()
-      // Auto-refresh every 30 seconds
-      const interval = setInterval(fetchCases, 30000)
-      return () => clearInterval(interval)
+  // Mark case as viewed when clicked
+  const markCaseAsViewed = (caseId: string) => {
+    const newViewed = new Set(viewedCases)
+    newViewed.add(caseId)
+    setViewedCases(newViewed)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('viewedRequests', JSON.stringify(Array.from(newViewed)))
     }
-  }, [user, loading, filter, router])
+  }
 
-  const fetchCases = async () => {
+  const fetchCases = useCallback(async () => {
     try {
       const token = localStorage.getItem('token')
       const source = filter === 'all' ? null : filter
@@ -90,22 +97,52 @@ export default function SolicitudesPage() {
     } finally {
       setLoadingCases(false)
     }
-  }
+  }, [filter, lastCaseId])
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+      return
+    }
+
+    if (user) {
+      fetchCases()
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(fetchCases, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [user, loading, router, fetchCases])
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      RECEIVED: '#0066cc',
-      DOCS_VALIDATION: '#ff9800',
-      TECH_REVIEW: '#9c27b0',
-      MANAGER_APPROVAL: '#2196f3',
-      FINANCE_APPROVAL: '#4caf50',
-      HR_APPROVAL: '#00bcd4',
-      APPROVED: '#28a745',
-      REJECTED: '#dc3545',
-      NEEDS_INFO: '#ffc107',
-      CLOSED: '#6c757d',
+      RECEIVED: '#6c757d', // Gray - neutral
+      DOCS_VALIDATION: '#17a2b8', // Teal - in progress
+      TECH_REVIEW: '#6f42c1', // Purple - technical review
+      MANAGER_APPROVAL: '#28a745', // Green - approval stage
+      FINANCE_APPROVAL: '#20c997', // Mint green - finance
+      HR_APPROVAL: '#17a2b8', // Teal - HR
+      APPROVED: '#28a745', // Green - approved
+      REJECTED: '#dc3545', // Red - rejected
+      NEEDS_INFO: '#fd7e14', // Orange - needs info
+      CLOSED: '#6c757d', // Gray - closed
     }
-    return colors[status] || '#666'
+    return colors[status] || '#6c757d'
+  }
+  
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      RECEIVED: 'Recibido',
+      DOCS_VALIDATION: 'Validación de Documentos',
+      TECH_REVIEW: 'Revisión Técnica',
+      MANAGER_APPROVAL: 'Aprobación Gerencial',
+      FINANCE_APPROVAL: 'Aprobación Finanzas',
+      HR_APPROVAL: 'Aprobación RRHH',
+      APPROVED: 'Aprobado',
+      REJECTED: 'Rechazado',
+      NEEDS_INFO: 'Requiere Información',
+      CLOSED: 'Cerrado',
+    }
+    return labels[status] || status
   }
 
   const formatDate = (dateString: string) => {
@@ -241,41 +278,70 @@ export default function SolicitudesPage() {
               <p style={{ fontSize: '1.2rem', color: '#666' }}>No hay solicitudes</p>
             </div>
           ) : (
-            cases.map((caseItem) => (
-              <Link
-                key={caseItem.id}
-                href={`/dashboard/cases/${caseItem.id}`}
-                style={{
-                  backgroundColor: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  display: 'block',
-                  borderLeft: '4px solid',
-                  borderLeftColor: getStatusColor(caseItem.status),
-                }}
-              >
+            cases.map((caseItem) => {
+              const isViewed = viewedCases.has(caseItem.id)
+              return (
+                <Link
+                  key={caseItem.id}
+                  href={`/dashboard/cases/${caseItem.id}`}
+                  onClick={() => markCaseAsViewed(caseItem.id)}
+                  style={{
+                    backgroundColor: isViewed ? '#f8f9fa' : 'white',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    boxShadow: isViewed ? '0 1px 2px rgba(0,0,0,0.05)' : '0 2px 4px rgba(0,0,0,0.1)',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'block',
+                    borderLeft: '4px solid',
+                    borderLeftColor: getStatusColor(caseItem.status),
+                    opacity: isViewed ? 0.85 : 1,
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateX(4px)'
+                    e.currentTarget.style.boxShadow = isViewed 
+                      ? '0 2px 4px rgba(0,0,0,0.1)' 
+                      : '0 4px 8px rgba(0,0,0,0.15)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateX(0)'
+                    e.currentTarget.style.boxShadow = isViewed 
+                      ? '0 1px 2px rgba(0,0,0,0.05)' 
+                      : '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                      <h3 style={{ margin: 0 }}>
+                      <h3 style={{ margin: 0, fontWeight: isViewed ? '500' : '600' }}>
                         {caseItem.profile.fullName || caseItem.profile.primaryEmail}
                       </h3>
                       {caseItem.source === 'PUBLIC_FORM' && (
                         <span
                           style={{
                             padding: '0.25rem 0.5rem',
-                            backgroundColor: '#e7f3ff',
-                            color: '#0066cc',
+                            backgroundColor: '#e9ecef',
+                            color: '#495057',
                             borderRadius: '4px',
                             fontSize: '0.75rem',
                             fontWeight: '500',
+                            border: '1px solid #dee2e6',
                           }}
                         >
-                          📝 Formulario Público
+                          Formulario Público
                         </span>
+                      )}
+                      {!isViewed && (
+                        <span
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            backgroundColor: '#0066cc',
+                            borderRadius: '50%',
+                            display: 'inline-block',
+                          }}
+                        />
                       )}
                     </div>
                     <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
@@ -284,27 +350,32 @@ export default function SolicitudesPage() {
                     </p>
                     <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                       {caseItem.destinoPais && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          🌍 {caseItem.destinoPais}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>📍</span>
+                          {caseItem.destinoPais}
                           {caseItem.destinoCiudad && `, ${caseItem.destinoCiudad}`}
                         </span>
                       )}
                       {caseItem.fechaSalida && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          📅 Salida: {new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>📆</span>
+                          Salida: {new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}
                         </span>
                       )}
                       {caseItem.montoEstimado && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          💰 {caseItem.montoEstimado.toLocaleString()} {caseItem.moneda || 'USD'}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>💵</span>
+                          {caseItem.montoEstimado.toLocaleString()} {caseItem.moneda || 'USD'}
                         </span>
                       )}
-                      <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                        📎 {caseItem._count.documents} documento{caseItem._count.documents !== 1 ? 's' : ''}
+                      <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ fontSize: '0.85rem' }}>📄</span>
+                        {caseItem._count.documents} documento{caseItem._count.documents !== 1 ? 's' : ''}
                       </span>
                     </div>
-                    <p style={{ margin: '0.5rem 0 0 0', color: '#999', fontSize: '0.85rem' }}>
-                      ⏰ Enviado {formatDate(caseItem.createdAt)}
+                    <p style={{ margin: '0.5rem 0 0 0', color: '#999', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ fontSize: '0.75rem' }}>🕐</span>
+                      Enviado {formatDate(caseItem.createdAt)}
                     </p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
@@ -313,17 +384,21 @@ export default function SolicitudesPage() {
                         padding: '0.5rem 1rem',
                         backgroundColor: getStatusColor(caseItem.status),
                         color: 'white',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
                         fontWeight: '500',
+                        textTransform: 'none',
+                        letterSpacing: '0.3px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                       }}
                     >
-                      {caseItem.status}
+                      {getStatusLabel(caseItem.status)}
                     </span>
                   </div>
                 </div>
               </Link>
-            ))
+              )
+            })
           )}
         </div>
       </main>

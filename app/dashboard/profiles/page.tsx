@@ -177,23 +177,27 @@ export default function ProfilesPage() {
                     </p>
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
                       {profile.cedula && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          🆔 Cédula: {profile.cedula}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>🆔</span>
+                          Cédula: {profile.cedula}
                         </span>
                       )}
                       {profile.phone && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          📞 {profile.phone}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>📱</span>
+                          {profile.phone}
                         </span>
                       )}
                       {profile.departamento && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          🏢 {profile.departamento}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>🏛️</span>
+                          {profile.departamento}
                         </span>
                       )}
                       {profile.cargo && (
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>
-                          💼 {profile.cargo}
+                        <span style={{ color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontSize: '0.85rem' }}>👔</span>
+                          {profile.cargo}
                         </span>
                       )}
                     </div>
@@ -216,11 +220,13 @@ export default function ProfilesPage() {
                         justifyContent: 'flex-end',
                       }}
                     >
-                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
-                        ✈️ {profile.casesCount} viaje{profile.casesCount !== 1 ? 's' : ''}
+                      <span style={{ fontSize: '0.9rem', color: '#666', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ fontSize: '0.85rem' }}>✈️</span>
+                        {profile.casesCount} viaje{profile.casesCount !== 1 ? 's' : ''}
                       </span>
-                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
-                        📎 {profile.documentsCount} doc{profile.documentsCount !== 1 ? 's' : ''}
+                      <span style={{ fontSize: '0.9rem', color: '#666', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span style={{ fontSize: '0.85rem' }}>📄</span>
+                        {profile.documentsCount} doc{profile.documentsCount !== 1 ? 's' : ''}
                       </span>
                     </div>
                     {profile.totalAmount > 0 && (
@@ -228,13 +234,14 @@ export default function ProfilesPage() {
                         style={{
                           fontSize: '1rem',
                           fontWeight: '600',
-                          color: '#28a745',
-                          backgroundColor: '#e7f5e7',
-                          padding: '0.25rem 0.75rem',
+                          color: '#155724',
+                          backgroundColor: '#d4edda',
+                          padding: '0.4rem 0.8rem',
                           borderRadius: '4px',
+                          border: '1px solid #c3e6cb',
                         }}
                       >
-                        💰 Total: ${profile.totalAmount.toLocaleString()} USD
+                        ${profile.totalAmount.toLocaleString()} USD
                       </span>
                     )}
                   </div>

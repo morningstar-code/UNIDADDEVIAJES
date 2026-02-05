@@ -346,8 +346,9 @@ export default function ProfileDetailPage() {
                                   <span style={{ fontSize: '0.8rem', color: '#999' }}>✓</span>
                                 )}
                               </div>
-                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                                📅 Enviado: {new Date(caseItem.createdAt).toLocaleDateString('es-DO', {
+                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <span style={{ fontSize: '0.75rem' }}>📅</span>
+                                Enviado: {new Date(caseItem.createdAt).toLocaleDateString('es-DO', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
@@ -355,22 +356,63 @@ export default function ProfileDetailPage() {
                                   minute: '2-digit',
                                 })}
                               </p>
-                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                                {caseItem.fechaSalida && `✈️ Salida: ${new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}`}
-                                {caseItem.fechaRetorno && ` | Retorno: ${new Date(caseItem.fechaRetorno).toLocaleDateString('es-DO')}`}
+                              <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {caseItem.fechaSalida && (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <span style={{ fontSize: '0.75rem' }}>✈️</span>
+                                    Salida: {new Date(caseItem.fechaSalida).toLocaleDateString('es-DO')}
+                                  </span>
+                                )}
+                                {caseItem.fechaRetorno && (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <span style={{ fontSize: '0.75rem' }}>↩️</span>
+                                    Retorno: {new Date(caseItem.fechaRetorno).toLocaleDateString('es-DO')}
+                                  </span>
+                                )}
                               </p>
                             </div>
                             <span
                               style={{
-                                padding: '0.25rem 0.75rem',
-                                backgroundColor: '#0066cc',
+                                padding: '0.4rem 0.9rem',
+                                backgroundColor: (() => {
+                                  const statusColors: Record<string, string> = {
+                                    RECEIVED: '#6c757d',
+                                    DOCS_VALIDATION: '#17a2b8',
+                                    TECH_REVIEW: '#6f42c1',
+                                    MANAGER_APPROVAL: '#28a745',
+                                    FINANCE_APPROVAL: '#20c997',
+                                    HR_APPROVAL: '#17a2b8',
+                                    APPROVED: '#28a745',
+                                    REJECTED: '#dc3545',
+                                    NEEDS_INFO: '#fd7e14',
+                                    CLOSED: '#6c757d',
+                                  }
+                                  return statusColors[caseItem.status] || '#6c757d'
+                                })(),
                                 color: 'white',
-                                borderRadius: '4px',
-                                fontSize: '0.85rem',
+                                borderRadius: '6px',
+                                fontSize: '0.8rem',
                                 fontWeight: '500',
+                                textTransform: 'none',
+                                letterSpacing: '0.3px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                               }}
                             >
-                              {caseItem.status}
+                              {(() => {
+                                const statusLabels: Record<string, string> = {
+                                  RECEIVED: 'Recibido',
+                                  DOCS_VALIDATION: 'Validación Docs',
+                                  TECH_REVIEW: 'Revisión Técnica',
+                                  MANAGER_APPROVAL: 'Aprobación Gerencial',
+                                  FINANCE_APPROVAL: 'Aprobación Finanzas',
+                                  HR_APPROVAL: 'Aprobación RRHH',
+                                  APPROVED: 'Aprobado',
+                                  REJECTED: 'Rechazado',
+                                  NEEDS_INFO: 'Requiere Info',
+                                  CLOSED: 'Cerrado',
+                                }
+                                return statusLabels[caseItem.status] || caseItem.status
+                              })()}
                             </span>
                           </div>
                         </Link>
