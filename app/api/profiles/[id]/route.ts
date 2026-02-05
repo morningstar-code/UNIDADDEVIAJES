@@ -16,6 +16,14 @@ export async function GET(
     include: {
       documents: {
         where: { isCurrent: true, profileId: { not: null }, caseId: null },
+        select: {
+          id: true,
+          docType: true,
+          originalFilename: true,
+          blobUrl: true,
+          mimeType: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: 'desc' },
       },
       cases: {

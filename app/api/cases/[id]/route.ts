@@ -17,6 +17,14 @@ export async function GET(
       profile: true,
       documents: {
         where: { isCurrent: true },
+        select: {
+          id: true,
+          docType: true,
+          originalFilename: true,
+          blobUrl: true,
+          mimeType: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: 'desc' },
       },
       tasks: {

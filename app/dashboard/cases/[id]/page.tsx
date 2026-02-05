@@ -30,6 +30,7 @@ interface CaseDetail {
     docType: string
     originalFilename: string
     blobUrl: string
+    mimeType?: string
     createdAt: string
   }>
   tasks: Array<{
@@ -58,6 +59,12 @@ export default function CaseDetailPage() {
   const [loadingCase, setLoadingCase] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [comment, setComment] = useState('')
+  const [selectedDocument, setSelectedDocument] = useState<{
+    id: string
+    filename: string
+    url: string
+    type: string
+  } | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -330,20 +337,26 @@ export default function CaseDetailPage() {
                       Tipo: {doc.docType} | {new Date(doc.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <a
-                    href={doc.blobUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() =>
+                      setSelectedDocument({
+                        id: doc.id,
+                        filename: doc.originalFilename,
+                        url: doc.blobUrl,
+                        type: doc.mimeType || '',
+                      })
+                    }
                     style={{
                       padding: '0.5rem 1rem',
                       backgroundColor: '#0066cc',
                       color: 'white',
+                      border: 'none',
                       borderRadius: '4px',
-                      textDecoration: 'none',
+                      cursor: 'pointer',
                     }}
                   >
                     Ver
-                  </a>
+                  </button>
                 </div>
               ))}
             </div>
@@ -370,6 +383,151 @@ export default function CaseDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Document Preview Modal */}
+      {selectedDocument && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem',
+          }}
+          onClick={() => setSelectedDocument(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              padding: '1.5rem',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedDocument(null)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ×
+            </button>
+
+            <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>{selectedDocument.filename}</h3>
+
+            {/* Preview */}
+            <div
+              style={{
+                marginBottom: '1.5rem',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '300px',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '4px',
+                padding: '1rem',
+              }}
+            >
+              {selectedDocument.type.startsWith('image/') ? (
+                <img
+                  src={selectedDocument.url}
+                  alt={selectedDocument.filename}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '70vh',
+                    objectFit: 'contain',
+                    borderRadius: '4px',
+                  }}
+                />
+              ) : selectedDocument.type === 'application/pdf' ? (
+                <iframe
+                  src={selectedDocument.url}
+                  style={{
+                    width: '100%',
+                    minHeight: '500px',
+                    border: 'none',
+                    borderRadius: '4px',
+                  }}
+                  title={selectedDocument.filename}
+                />
+              ) : (
+                <div style={{ textAlign: 'center', color: '#666' }}>
+                  <p style={{ fontSize: '3rem', margin: '1rem 0' }}>📄</p>
+                  <p>Vista previa no disponible para este tipo de archivo</p>
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <a
+                href={selectedDocument.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#0066cc',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                🔗 Abrir en Nueva Pestaña
+              </a>
+              <a
+                href={selectedDocument.url}
+                download={selectedDocument.filename}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                ⬇️ Descargar
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
