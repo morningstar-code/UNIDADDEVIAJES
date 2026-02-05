@@ -36,6 +36,7 @@ export default function SolicitudesPage() {
   const [loadingCases, setLoadingCases] = useState(true)
   const [filter, setFilter] = useState<'all' | 'PUBLIC_FORM'>('all')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [lastCaseId, setLastCaseId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -67,8 +68,22 @@ export default function SolicitudesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setCases(data.cases || [])
-        setUnreadCount(data.unreadCount || 0)
+        const newCases = data.cases || []
+        
+        // Check for new cases
+        if (lastCaseId && newCases.length > 0) {
+          const latestCase = newCases[0]
+          if (latestCase.id !== lastCaseId) {
+            // New case detected - could show notification here
+            setUnreadCount((prev) => prev + 1)
+          }
+        }
+        
+        if (newCases.length > 0 && !lastCaseId) {
+          setLastCaseId(newCases[0].id)
+        }
+        
+        setCases(newCases)
       }
     } catch (error) {
       console.error('Error fetching cases:', error)
