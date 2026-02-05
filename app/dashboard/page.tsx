@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [newRequestsCount, setNewRequestsCount] = useState(0)
   const [lastCheckTime, setLastCheckTime] = useState<Date>(new Date())
   const [showNotification, setShowNotification] = useState(false)
+  const lastKnownCaseIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,8 +23,6 @@ export default function DashboardPage() {
   // Check for new requests every 15 seconds
   useEffect(() => {
     if (!user) return
-
-    let lastKnownCaseId: string | null = null
 
     const checkNewRequests = async () => {
       try {
@@ -40,18 +39,18 @@ export default function DashboardPage() {
             const latestCase = data.cases[0]
             
             // First time: just store the latest case ID
-            if (!lastKnownCaseId) {
-              lastKnownCaseId = latestCase.id
+            if (!lastKnownCaseIdRef.current) {
+              lastKnownCaseIdRef.current = latestCase.id
               setLastCheckTime(new Date())
               return
             }
             
             // Check if there's a new case (different ID at the top)
-            if (latestCase.id !== lastKnownCaseId) {
+            if (latestCase.id !== lastKnownCaseIdRef.current) {
               // Count how many new cases there are
               let newCount = 0
               for (const caseItem of data.cases) {
-                if (caseItem.id === lastKnownCaseId) break
+                if (caseItem.id === lastKnownCaseIdRef.current) break
                 newCount++
               }
               
@@ -70,7 +69,7 @@ export default function DashboardPage() {
                   })
                 }
                 
-                lastKnownCaseId = latestCase.id
+                lastKnownCaseIdRef.current = latestCase.id
               }
             }
             
