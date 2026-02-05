@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { DocumentType } from '@prisma/client'
 import { countries, searchCountries } from '@/lib/data/countries'
+import { searchCitiesByCountry, getCitiesByCountry } from '@/lib/data/cities'
 
 interface FormData {
   // Personal
@@ -65,8 +66,13 @@ export default function SolicitarPage() {
   const [documents, setDocuments] = useState<DocumentFile[]>([])
   const [countrySuggestions, setCountrySuggestions] = useState<string[]>([])
   const [showCountrySuggestions, setShowCountrySuggestions] = useState(false)
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([])
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false)
+  const [dateWarning, setDateWarning] = useState('')
   const countryInputRef = useRef<HTMLInputElement>(null)
+  const cityInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+  const citySuggestionsRef = useRef<HTMLDivElement>(null)
 
   // Cerrar sugerencias al hacer click fuera
   useEffect(() => {
@@ -79,6 +85,14 @@ export default function SolicitarPage() {
       ) {
         setShowCountrySuggestions(false)
       }
+      if (
+        citySuggestionsRef.current &&
+        !citySuggestionsRef.current.contains(event.target as Node) &&
+        cityInputRef.current &&
+        !cityInputRef.current.contains(event.target as Node)
+      ) {
+        setShowCitySuggestions(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
@@ -88,25 +102,83 @@ export default function SolicitarPage() {
   }, [])
 
   const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value }
+      
+      // Si cambió el país, limpiar ciudad
+      if (field === 'destinationCountry' && prev.destinationCountry !== value) {
+        updated.destinationCity = ''
+      }
+      
+      return updated
+    })
     
     // Si es el campo de país, mostrar sugerencias
     if (field === 'destinationCountry') {
       if (value.trim().length > 0) {
         const suggestions = searchCountries(value)
-        setCountrySuggestions(suggestions.slice(0, 10)) // Mostrar máximo 10
+        setCountrySuggestions(suggestions.slice(0, 10))
         setShowCountrySuggestions(suggestions.length > 0)
       } else {
         setCountrySuggestions([])
         setShowCountrySuggestions(false)
       }
     }
+    
+    // Si es el campo de ciudad, mostrar sugerencias basadas en el país
+    if (field === 'destinationCity') {
+      const selectedCountry = formData.destinationCountry
+      if (selectedCountry && value.trim().length > 0) {
+        const suggestions = searchCitiesByCountry(selectedCountry, value)
+        setCitySuggestions(suggestions.slice(0, 10))
+        setShowCitySuggestions(suggestions.length > 0)
+      } else {
+        setCitySuggestions([])
+        setShowCitySuggestions(false)
+      }
+    }
+    
+    // Validar fecha de salida
+    if (field === 'departureDate') {
+      validateDepartureDate(value)
+    }
+  }
+  
+  const validateDepartureDate = (dateString: string) => {
+    if (!dateString) {
+      setDateWarning('')
+      return
+    }
+    
+    const selectedDate = new Date(dateString)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    selectedDate.setHours(0, 0, 0, 0)
+    
+    const diffTime = selectedDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 10) {
+      setDateWarning(
+        `⚠️ Advertencia: La fecha de salida debe ser al menos 10 días después de la fecha de envío de la solicitud. Faltan ${10 - diffDays} día${10 - diffDays !== 1 ? 's' : ''}.`
+      )
+    } else {
+      setDateWarning('')
+    }
   }
 
   const handleCountrySelect = (country: string) => {
-    setFormData((prev) => ({ ...prev, destinationCountry: country }))
+    setFormData((prev) => ({ ...prev, destinationCountry: country, destinationCity: '' }))
     setShowCountrySuggestions(false)
     setCountrySuggestions([])
+    setCitySuggestions([])
+    setShowCitySuggestions(false)
+  }
+  
+  const handleCitySelect = (city: string) => {
+    setFormData((prev) => ({ ...prev, destinationCity: city }))
+    setShowCitySuggestions(false)
+    setCitySuggestions([])
   }
 
   const handleDocumentAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,6 +226,17 @@ export default function SolicitarPage() {
       }
       const departure = new Date(formData.departureDate)
       const returnDate = new Date(formData.returnDate)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      departure.setHours(0, 0, 0, 0)
+      
+      const diffTime = departure.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays < 10) {
+        setError('La fecha de salida debe ser al menos 10 días después de la fecha de envío de la solicitud')
+        return false
+      }
       if (returnDate < departure) {
         setError('La fecha de retorno debe ser posterior a la fecha de salida')
         return false
@@ -544,22 +627,80 @@ export default function SolicitarPage() {
                   </div>
                 )}
               </div>
-              <div>
+              <div style={{ position: 'relative' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                   Ciudad Destino *
+                  {!formData.destinationCountry && (
+                    <span style={{ fontSize: '0.8rem', color: '#999', marginLeft: '0.5rem' }}>
+                      (Selecciona un país primero)
+                    </span>
+                  )}
                 </label>
                 <input
+                  ref={cityInputRef}
                   type="text"
                   value={formData.destinationCity}
                   onChange={(e) => handleInputChange('destinationCity', e.target.value)}
+                  onFocus={() => {
+                    if (formData.destinationCountry && formData.destinationCity.trim().length > 0) {
+                      const suggestions = searchCitiesByCountry(formData.destinationCountry, formData.destinationCity)
+                      setCitySuggestions(suggestions.slice(0, 10))
+                      setShowCitySuggestions(suggestions.length > 0)
+                    }
+                  }}
+                  disabled={!formData.destinationCountry}
+                  placeholder={formData.destinationCountry ? "Escribe para buscar ciudad..." : "Selecciona un país primero"}
                   required
                   style={{
                     width: '100%',
                     padding: '0.75rem',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
+                    backgroundColor: !formData.destinationCountry ? '#f5f5f5' : 'white',
+                    cursor: !formData.destinationCountry ? 'not-allowed' : 'text',
                   }}
                 />
+                {showCitySuggestions && citySuggestions.length > 0 && (
+                  <div
+                    ref={citySuggestionsRef}
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      backgroundColor: 'white',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      marginTop: '0.25rem',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      zIndex: 1000,
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    }}
+                  >
+                    {citySuggestions.map((city, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleCitySelect(city)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        style={{
+                          padding: '0.75rem',
+                          cursor: 'pointer',
+                          borderBottom: index < citySuggestions.length - 1 ? '1px solid #eee' : 'none',
+                          backgroundColor: 'white',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f0f0f0'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'white'
+                        }}
+                      >
+                        {city}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
