@@ -36,13 +36,13 @@ export async function uploadAttachmentToBlob(
   // Build pathname
   let pathname: string
   if (caseId && profileId) {
-    // Case-specific document
+    // Case-specific document (stored in case folder but under profile structure)
     pathname = `profiles/${profileId}/cases/${caseId}/${docType}/${filename}`
   } else if (profileId) {
     // Base profile document
     pathname = `profiles/${profileId}/base/${docType}/${filename}`
   } else {
-    throw new Error('Either profileId or caseId must be provided')
+    throw new Error('profileId must be provided')
   }
 
   // Upload to Vercel Blob

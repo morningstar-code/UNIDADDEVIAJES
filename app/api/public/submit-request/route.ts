@@ -158,12 +158,16 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await doc.file.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
 
-        // Determine if it's a base document (cedula/pasaporte) or case document
-        const isBaseDoc = doc.docType === DocumentType.CEDULA || doc.docType === DocumentType.PASAPORTE
+        // Determine if it's a base document (cedula/pasaporte/foto) or case document
+        const isBaseDoc = 
+          doc.docType === DocumentType.CEDULA || 
+          doc.docType === DocumentType.PASAPORTE ||
+          doc.docType === DocumentType.FOTO
 
+        // Always pass profileId for blob path structure, but only associate base docs with profile
         const uploadResult = await uploadAttachmentToBlob({
-          profileId: isBaseDoc ? profileResult.profileId : undefined,
-          caseId: caseRecord.id,
+          profileId: profileResult.profileId,
+          caseId: isBaseDoc ? undefined : caseRecord.id,
           originalFilename: doc.file.name,
           buffer,
           contentType: doc.file.type,
@@ -173,7 +177,7 @@ export async function POST(request: NextRequest) {
         const document = await prisma.document.create({
           data: {
             profileId: isBaseDoc ? profileResult.profileId : undefined,
-            caseId: caseRecord.id,
+            caseId: isBaseDoc ? undefined : caseRecord.id,
             docType: doc.docType,
             originalFilename: doc.file.name,
             mimeType: doc.file.type,
