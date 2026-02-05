@@ -112,6 +112,81 @@ export default function DashboardPage() {
             </p>
           </Link>
         </div>
+
+        {/* Public Request Link Card */}
+        <div
+          style={{
+            backgroundColor: 'white',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            marginBottom: '2rem',
+          }}
+        >
+          <h2 style={{ marginBottom: '1rem' }}>Nueva Solicitud (Link Público)</h2>
+          <p style={{ color: '#666', marginBottom: '1rem' }}>
+            Comparte este link con personas que quieran solicitar un viaje
+          </p>
+          <div
+            style={{
+              display: 'flex',
+              gap: '1rem',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <input
+              type="text"
+              readOnly
+              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/solicitar`}
+              id="public-link-input"
+              style={{
+                flex: 1,
+                minWidth: '300px',
+                padding: '0.75rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '0.9rem',
+              }}
+            />
+            <button
+              onClick={() => {
+                const input = document.getElementById('public-link-input') as HTMLInputElement
+                if (input) {
+                  input.select()
+                  document.execCommand('copy')
+                  alert('Link copiado al portapapeles')
+                }
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
+            >
+              Copiar Link
+            </button>
+            <a
+              href="/solicitar"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#28a745',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+                fontSize: '1rem',
+              }}
+            >
+              Abrir en Nueva Pestaña
+            </a>
+          </div>
+        </div>
       </main>
     </div>
   )

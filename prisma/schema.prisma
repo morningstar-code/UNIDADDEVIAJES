@@ -22,6 +22,7 @@ enum UserRole {
 enum CaseSource {
   EMAIL_AUTOMATION
   MANUAL
+  PUBLIC_FORM
 }
 
 enum CaseStatus {
@@ -58,6 +59,7 @@ enum DocumentType {
   CARTA_INVITACION
   AGENDA
   TICKET
+  MEMO_APROBACION
   OTRO
 }
 
@@ -77,9 +79,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  createdCases     Case[]       @relation("CaseCreator")
-  assignedTasks    Task[]
-  auditLogs        AuditLog[]
+  createdCases      Case[]             @relation("CaseCreator")
+  assignedTasks     Task[]
+  auditLogs         AuditLog[]
   processedMessages ProcessedMessage[]
 
   @@index([email])
@@ -98,21 +100,21 @@ model Role {
 }
 
 model Profile {
-  id              String    @id @default(uuid())
-  primaryEmail    String    @unique // Normalized: lowercase(trim())
+  id              String   @id @default(uuid())
+  primaryEmail    String?  @unique // Normalized: lowercase(trim()) - nullable if only cedula
   fullName        String?
-  cedula          String?
+  cedula          String?  @unique // Unique when not null
   passportNumber  String?
   passportCountry String?
   phone           String?
   cargo           String?
   departamento    String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  cases      Case[]
-  documents  Document[]
-  auditLogs  AuditLog[]
+  cases     Case[]
+  documents Document[]
+  auditLogs AuditLog[]
 
   @@index([primaryEmail])
   @@index([cedula])
@@ -120,49 +122,53 @@ model Profile {
 }
 
 model Case {
-  id                   String      @id @default(uuid())
-  profileId            String
-  profile              Profile      @relation(fields: [profileId], references: [id])
-  createdByUserId      String?
-  createdBy            User?        @relation("CaseCreator", fields: [createdByUserId], references: [id])
-  source               CaseSource
-  status               CaseStatus   @default(RECEIVED)
-  destinoPais          String?
-  destinoCiudad        String?
-  fechaSalida          DateTime?
-  fechaRetorno         DateTime?
-  motivo               String?
-  evento               String?
+  id                      String     @id @default(uuid())
+  profileId               String
+  profile                 Profile    @relation(fields: [profileId], references: [id])
+  createdByUserId         String?
+  createdBy               User?      @relation("CaseCreator", fields: [createdByUserId], references: [id])
+  source                  CaseSource
+  status                  CaseStatus @default(RECEIVED)
+  destinoPais             String?
+  destinoCiudad           String?
+  fechaSalida             DateTime?
+  fechaRetorno            DateTime?
+  motivo                  String?
+  evento                  String?
   institucionOrganizadora String?
-  montoEstimado        Decimal?     @db.Decimal(15, 2)
-  moneda               String?      @default("USD")
-  contenidoRaw         String?     @db.Text
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  montoEstimado           Decimal?   @db.Decimal(15, 2)
+  moneda                  String?    @default("USD")
+  centroCosto             String?
+  observaciones           String?    @db.Text
+  clientGeneratedId       String?    @unique // For idempotency in public form
+  contenidoRaw            String?    @db.Text
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
 
-  tasks      Task[]
-  documents  Document[]
-  auditLogs  AuditLog[]
+  tasks     Task[]
+  documents Document[]
+  auditLogs AuditLog[]
 
   @@index([profileId])
   @@index([status])
   @@index([createdAt])
+  @@index([clientGeneratedId])
 }
 
 model Task {
-  id            String        @id @default(uuid())
-  caseId        String
-  case          Case          @relation(fields: [caseId], references: [id])
-  step          WorkflowStep
+  id             String       @id @default(uuid())
+  caseId         String
+  case           Case         @relation(fields: [caseId], references: [id])
+  step           WorkflowStep
   assignedRoleId String?
-  assignedRole  Role?         @relation(fields: [assignedRoleId], references: [id])
+  assignedRole   Role?        @relation(fields: [assignedRoleId], references: [id])
   assignedUserId String?
-  assignedUser  User?         @relation(fields: [assignedUserId], references: [id])
-  status        TaskStatus    @default(PENDING)
-  dueAt         DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  completedAt   DateTime?
+  assignedUser   User?        @relation(fields: [assignedUserId], references: [id])
+  status         TaskStatus   @default(PENDING)
+  dueAt          DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  completedAt    DateTime?
 
   @@index([caseId])
   @@index([assignedUserId])
@@ -171,22 +177,22 @@ model Task {
 }
 
 model Document {
-  id                    String       @id @default(uuid())
-  profileId             String?
-  profile               Profile?     @relation(fields: [profileId], references: [id])
-  caseId                String?
-  case                  Case?        @relation(fields: [caseId], references: [id])
-  docType               DocumentType
-  originalFilename      String
-  mimeType              String
-  sizeBytes             Int
-  blobUrl               String
-  blobPathname          String
-  checksumSha256        String?
-  isCurrent             Boolean      @default(true)
-  sourceEmailMessageId  String?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  id                   String       @id @default(uuid())
+  profileId            String?
+  profile              Profile?     @relation(fields: [profileId], references: [id])
+  caseId               String?
+  case                 Case?        @relation(fields: [caseId], references: [id])
+  docType              DocumentType
+  originalFilename     String
+  mimeType             String
+  sizeBytes            Int
+  blobUrl              String
+  blobPathname         String
+  checksumSha256       String?
+  isCurrent            Boolean      @default(true)
+  sourceEmailMessageId String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 
   @@index([profileId])
   @@index([caseId])
@@ -209,16 +215,16 @@ model ProcessedMessage {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
+  id          String   @id @default(uuid())
   actorUserId String?
-  actor      User?    @relation(fields: [actorUserId], references: [id])
-  caseId     String?
-  case       Case?    @relation(fields: [caseId], references: [id])
-  profileId  String?
-  profile    Profile? @relation(fields: [profileId], references: [id])
-  action     String
-  details    Json?
-  createdAt  DateTime @default(now())
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+  caseId      String?
+  case        Case?    @relation(fields: [caseId], references: [id])
+  profileId   String?
+  profile     Profile? @relation(fields: [profileId], references: [id])
+  action      String
+  details     Json?
+  createdAt   DateTime @default(now())
 
   @@index([actorUserId])
   @@index([caseId])
