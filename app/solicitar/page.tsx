@@ -182,16 +182,20 @@ export default function SolicitarPage() {
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
         let errorMessage = 'Error al enviar la solicitud'
         try {
-          const errorJson = JSON.parse(errorText)
-          errorMessage = errorJson.error || errorMessage
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
         } catch {
-          // If response is not JSON, use the text
+          // If response is not JSON, use status-based messages
           if (response.status === 413) {
             errorMessage = 'Los archivos son demasiado grandes. Por favor, reduce el tamaño de los documentos o sube menos archivos.'
+          } else if (response.status === 500) {
+            errorMessage = 'Error del servidor. Por favor, intente nuevamente o contacte al administrador si el problema persiste.'
+          } else if (response.status === 400) {
+            errorMessage = 'Datos inválidos. Por favor, verifique que todos los campos requeridos estén completos.'
           } else {
+            const errorText = await response.text().catch(() => '')
             errorMessage = errorText || errorMessage
           }
         }

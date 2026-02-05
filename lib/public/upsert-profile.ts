@@ -39,7 +39,7 @@ export async function upsertProfileByCedulaOrEmail(
   if (normalizedCedula) {
     const existingByCedula = await prisma.profile.findUnique({
       where: { cedula: normalizedCedula },
-    })
+    }).catch(() => null)
 
     if (existingByCedula) {
       // Update existing profile
@@ -62,7 +62,7 @@ export async function upsertProfileByCedulaOrEmail(
       if (normalizedEmail && normalizedEmail !== existingByCedula.primaryEmail) {
         const existingByEmail = await prisma.profile.findUnique({
           where: { primaryEmail: normalizedEmail },
-        })
+        }).catch(() => null)
         if (existingByEmail && existingByEmail.id !== existingByCedula.id) {
           return {
             profileId: updated.id,
@@ -80,7 +80,7 @@ export async function upsertProfileByCedulaOrEmail(
   if (normalizedEmail) {
     const existingByEmail = await prisma.profile.findUnique({
       where: { primaryEmail: normalizedEmail },
-    })
+    }).catch(() => null)
 
     if (existingByEmail) {
       // Update existing profile
@@ -103,7 +103,7 @@ export async function upsertProfileByCedulaOrEmail(
       if (normalizedCedula && normalizedCedula !== existingByEmail.cedula) {
         const existingByCedula = await prisma.profile.findUnique({
           where: { cedula: normalizedCedula },
-        })
+        }).catch(() => null)
         if (existingByCedula && existingByCedula.id !== existingByEmail.id) {
           return {
             profileId: updated.id,

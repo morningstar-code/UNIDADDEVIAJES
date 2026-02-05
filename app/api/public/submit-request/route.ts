@@ -217,9 +217,27 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Error submitting public request:', error)
+    
+    // Better error messages
+    let errorMessage = 'Error al procesar la solicitud'
+    let statusCode = 500
+    
+    if (error.message?.includes('centroCosto') || error.message?.includes('does not exist')) {
+      errorMessage = 'Error de base de datos: La migración no se ha ejecutado. Contacte al administrador.'
+      statusCode = 500
+    } else if (error.message?.includes('unique constraint') || error.message?.includes('duplicate')) {
+      errorMessage = 'Ya existe un registro con estos datos. Por favor, verifique la información.'
+      statusCode = 409
+    } else if (error.message?.includes('BLOB_READ_WRITE_TOKEN')) {
+      errorMessage = 'Error de configuración del servidor. Contacte al administrador.'
+      statusCode = 500
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
     return NextResponse.json(
-      { error: error.message || 'Error al procesar la solicitud' },
-      { status: 500 }
+      { error: errorMessage },
+      { status: statusCode }
     )
   }
 }
