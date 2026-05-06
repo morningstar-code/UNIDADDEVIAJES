@@ -4,6 +4,7 @@ import crypto from 'crypto'
 export interface UploadAttachmentParams {
   profileId?: string
   caseId?: string
+  matrixEntryId?: string
   originalFilename: string
   buffer: Buffer
   contentType: string
@@ -19,7 +20,7 @@ export interface UploadResult {
 export async function uploadAttachmentToBlob(
   params: UploadAttachmentParams
 ): Promise<UploadResult> {
-  const { profileId, caseId, originalFilename, buffer, contentType, docType } = params
+  const { profileId, caseId, matrixEntryId, originalFilename, buffer, contentType, docType } = params
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     throw new Error('BLOB_READ_WRITE_TOKEN is not set')
@@ -41,8 +42,10 @@ export async function uploadAttachmentToBlob(
   } else if (profileId) {
     // Base profile document
     pathname = `profiles/${profileId}/base/${docType}/${filename}`
+  } else if (matrixEntryId) {
+    pathname = `matriz/${matrixEntryId}/${docType}/${filename}`
   } else {
-    throw new Error('profileId must be provided')
+    throw new Error('profileId or matrixEntryId must be provided')
   }
 
   // Upload to Vercel Blob

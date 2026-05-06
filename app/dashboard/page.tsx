@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { user, loading, logout } = useAuth()
   const [newRequestsCount, setNewRequestsCount] = useState(0)
+  const [stats, setStats] = useState<Record<string, number> | null>(null)
   const [lastCheckTime, setLastCheckTime] = useState<Date>(new Date())
   const [showNotification, setShowNotification] = useState(false)
   const lastKnownCaseIdRef = useRef<string | null>(null)
@@ -102,6 +103,17 @@ export default function DashboardPage() {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!user) return
+    const token = localStorage.getItem('token')
+    fetch('/api/dashboard/stats', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setStats(data))
+      .catch(() => setStats(null))
+  }, [user])
+
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -155,6 +167,33 @@ export default function DashboardPage() {
         </div>
       </header>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        {stats && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '1rem',
+              marginBottom: '2rem',
+            }}
+          >
+            {[
+              ['Viajes en matriz', stats.totalMatrix],
+              ['Próximos 30 días', stats.matrix30],
+              ['Pendientes Unidad', stats.pendingViajes],
+              ['Pendientes RI', stats.pendingRI],
+              ['Despacho', stats.pendingDespacho],
+              ['Consejo', stats.pendingConsejo],
+              ['Incompletos', stats.incompleteFiles],
+              ['Cerrados', stats.closed],
+            ].map(([label, value]) => (
+              <div key={label} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <strong style={{ display: 'block', fontSize: '1.6rem', color: '#0066cc' }}>{value}</strong>
+                <span style={{ color: '#666', fontSize: '0.9rem' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div
           style={{
             display: 'grid',
@@ -180,6 +219,42 @@ export default function DashboardPage() {
               Ver y procesar tus tareas pendientes
             </p>
           </Link>
+          <Link
+            href="/dashboard/matriz"
+            style={{
+              backgroundColor: 'white',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              textDecoration: 'none',
+              color: 'inherit',
+              display: 'block',
+            }}
+          >
+            <h2 style={{ marginBottom: '0.5rem' }}>Matriz de Viajes</h2>
+            <p style={{ color: '#666', margin: 0 }}>
+              Registrar viajes programados, alertas 30 días y pauta RI
+            </p>
+          </Link>
+          {user.role === 'ADMIN' && (
+            <Link
+              href="/dashboard/users"
+              style={{
+                backgroundColor: 'white',
+                padding: '1.5rem',
+                borderRadius: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                textDecoration: 'none',
+                color: 'inherit',
+                display: 'block',
+              }}
+            >
+              <h2 style={{ marginBottom: '0.5rem' }}>Usuarios</h2>
+              <p style={{ color: '#666', margin: 0 }}>
+                Gestionar usuarios, roles y accesos
+              </p>
+            </Link>
+          )}
           <Link
             href="/dashboard/profiles"
             style={{

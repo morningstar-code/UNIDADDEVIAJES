@@ -11,7 +11,7 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
   WorkflowStep.HR_APPROVAL,
 ]
 
-const STEP_TO_STATUS: Record<WorkflowStep, CaseStatus> = {
+const STEP_TO_STATUS: Partial<Record<WorkflowStep, CaseStatus>> = {
   [WorkflowStep.DOCS_VALIDATION]: CaseStatus.DOCS_VALIDATION,
   [WorkflowStep.TECH_REVIEW]: CaseStatus.TECH_REVIEW,
   [WorkflowStep.MANAGER_APPROVAL]: CaseStatus.MANAGER_APPROVAL,
@@ -38,16 +38,30 @@ export async function processTaskAction(
     return { success: false, error: 'Task is not pending' }
   }
 
-  // Verify user has permission (check role or assignment)
-  if (task.assignedUserId && task.assignedUserId !== userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true },
-    })
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { role: true },
+  })
 
-    if (!user || task.assignedRoleId !== user.roleId) {
-      return { success: false, error: 'Unauthorized' }
-    }
+  if (!user || !user.isActive) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const permissions = user.role.permissions
+  const isAdmin = permissions.includes('*')
+  const actionPermission =
+    action === 'APPROVE'
+      ? 'tasks:approve'
+      : action === 'REJECT'
+        ? 'tasks:reject'
+        : 'tasks:request_info'
+
+  const canPerformAction = isAdmin || permissions.includes(actionPermission)
+  const isAssignedUser = task.assignedUserId === userId
+  const isAssignedRole = task.assignedRoleId === user.roleId
+
+  if (!canPerformAction || (!isAdmin && !isAssignedUser && !isAssignedRole)) {
+    return { success: false, error: 'Forbidden' }
   }
 
   try {
@@ -157,7 +171,7 @@ export async function processTaskAction(
 
       // Create next task
       const nextStep = WORKFLOW_STEPS[nextStepIndex]
-      const nextStatus = STEP_TO_STATUS[nextStep]
+      const nextStatus = STEP_TO_STATUS[nextStep] || CaseStatus.DOCS_VALIDATION
 
       await prisma.case.update({
         where: { id: task.caseId },

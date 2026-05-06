@@ -33,6 +33,42 @@ interface CaseDetail {
     mimeType?: string
     createdAt: string
   }>
+  designations: Array<{
+    id: string
+    collaboratorEmail: string
+    subject: string
+    body: string
+    status: string
+    sentAt: string | null
+  }>
+  documentRequirements: Array<{
+    id: string
+    docType: string
+    label: string
+    required: boolean
+    status: string
+    observations: string | null
+    uploadedByName: string | null
+    uploadedAt: string | null
+    document: {
+      id: string
+      originalFilename: string
+      blobUrl: string
+      mimeType: string
+    } | null
+  }>
+  generatedDocuments: Array<{
+    id: string
+    type: string
+    title: string
+    status: string
+    document: {
+      id: string
+      originalFilename: string
+      blobUrl: string
+      mimeType: string
+    } | null
+  }>
   tasks: Array<{
     id: string
     step: string
@@ -59,6 +95,10 @@ export default function CaseDetailPage() {
   const [loadingCase, setLoadingCase] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [comment, setComment] = useState('')
+  const [designationDraft, setDesignationDraft] = useState<{ subject: string; body: string } | null>(null)
+  const [generatedDraft, setGeneratedDraft] = useState<{ type: string; content: string } | null>(null)
+  const [uploadingRequirementId, setUploadingRequirementId] = useState<string | null>(null)
+  const [signedFile, setSignedFile] = useState<File | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<{
     id: string
     filename: string
@@ -89,6 +129,12 @@ export default function CaseDetailPage() {
       if (response.ok) {
         const data = await response.json()
         setCaseDetail(data)
+        await fetch(`/api/cases/${params.id}/read`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
       }
     } catch (error) {
       console.error('Error fetching case:', error)
@@ -122,6 +168,150 @@ export default function CaseDetailPage() {
       alert('Error processing action')
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const loadDesignationDraft = async () => {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/cases/${params.id}/designation`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json()
+    if (response.ok) {
+      setDesignationDraft({ subject: data.subject, body: data.body })
+      await fetchCase()
+    } else {
+      alert(data.error || 'No se pudo generar la designación')
+    }
+  }
+
+  const sendDesignation = async () => {
+    if (!designationDraft) return
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/cases/${params.id}/designation`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(designationDraft),
+    })
+    const data = await response.json()
+    if (response.ok) {
+      alert('Designación enviada')
+      setDesignationDraft(null)
+      await fetchCase()
+    } else {
+      alert(data.error || 'No se pudo enviar la designación')
+    }
+  }
+
+  const updateRequirement = async (requirementId: string, action: 'VALIDATE' | 'REJECT' | 'WAIVE') => {
+    const token = localStorage.getItem('token')
+    const observations = action === 'REJECT' ? prompt('Observaciones para corrección') : undefined
+    const response = await fetch(`/api/cases/${params.id}/requirements/${requirementId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, observations }),
+    })
+    if (response.ok) await fetchCase()
+    else alert((await response.json()).error || 'No se pudo actualizar documento')
+  }
+
+  const uploadStaffDocument = async (requirementId: string, docType: string, file: File | null) => {
+    if (!file) return
+    setUploadingRequirementId(requirementId)
+    const token = localStorage.getItem('token')
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('docType', docType)
+    formData.append('requirementId', requirementId)
+    const response = await fetch(`/api/cases/${params.id}/documents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    setUploadingRequirementId(null)
+    if (response.ok) await fetchCase()
+    else alert((await response.json()).error || 'No se pudo subir documento')
+  }
+
+  const startGeneratedDocument = (type: 'FORMULARIO_SOLICITUD_VIAJE' | 'CARTA_MINISTRO_ADMINISTRATIVO') => {
+    const title = type === 'FORMULARIO_SOLICITUD_VIAJE' ? 'Formulario de solicitud de viaje' : 'Carta al Ministro Administrativo'
+    const content = [
+      title,
+      '',
+      `Nombre: ${caseDetail?.profile.fullName || caseDetail?.profile.primaryEmail || ''}`,
+      `Destino: ${caseDetail?.destinoCiudad ? `${caseDetail.destinoCiudad}, ` : ''}${caseDetail?.destinoPais || ''}`,
+      `Fechas: ${caseDetail?.fechaSalida ? new Date(caseDetail.fechaSalida).toLocaleDateString('es-DO') : ''} - ${caseDetail?.fechaRetorno ? new Date(caseDetail.fechaRetorno).toLocaleDateString('es-DO') : ''}`,
+      `Evento: ${caseDetail?.evento || ''}`,
+      `Objetivo: ${caseDetail?.motivo || ''}`,
+      type === 'CARTA_MINISTRO_ADMINISTRATIVO' ? '\nAtentamente,\n\nGuido Gomez Mazara\nPresidente del Consejo Directivo\nINDOTEL' : '',
+    ].join('\n')
+    setGeneratedDraft({ type, content })
+  }
+
+  const saveGeneratedDocument = async (action: 'SAVE_DRAFT' | 'GENERATE') => {
+    if (!generatedDraft) return
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/cases/${params.id}/generated-documents`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: generatedDraft.type,
+        action,
+        draftContent: generatedDraft.content,
+      }),
+    })
+    if (response.ok) {
+      setGeneratedDraft(null)
+      await fetchCase()
+    } else {
+      alert((await response.json()).error || 'No se pudo generar documento')
+    }
+  }
+
+  const runWorkflowAction = async (action: string, extra?: Record<string, string>) => {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/cases/${params.id}/workflow`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...extra }),
+    })
+    if (response.ok) await fetchCase()
+    else alert((await response.json()).error || 'No se pudo ejecutar la acción')
+  }
+
+  const signWorkflow = async () => {
+    if (!signedFile) {
+      alert('Debe seleccionar el expediente firmado')
+      return
+    }
+    const token = localStorage.getItem('token')
+    const formData = new FormData()
+    formData.append('action', 'CONSEJO_SIGN')
+    formData.append('signatureType', 'PRESENCIAL')
+    formData.append('signedBy', user?.name || user?.email || '')
+    formData.append('file', signedFile)
+    const response = await fetch(`/api/cases/${params.id}/workflow`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    if (response.ok) {
+      setSignedFile(null)
+      await fetchCase()
+    } else {
+      alert((await response.json()).error || 'No se pudo registrar firma')
     }
   }
 
@@ -176,6 +366,45 @@ export default function CaseDetailPage() {
         </div>
       </header>
       <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Designación al Colaborador</h2>
+          {caseDetail.designations?.[0] ? (
+            <p style={{ color: '#666' }}>
+              Estado: <strong>{caseDetail.designations[0].status}</strong> · Destinatario:{' '}
+              {caseDetail.designations[0].collaboratorEmail}
+              {caseDetail.designations[0].sentAt && ` · Enviado: ${new Date(caseDetail.designations[0].sentAt).toLocaleString('es-DO')}`}
+            </p>
+          ) : (
+            <p style={{ color: '#666' }}>Aún no se ha generado la designación para este caso.</p>
+          )}
+          {!designationDraft ? (
+            <button onClick={loadDesignationDraft} style={{ padding: '0.75rem 1rem', backgroundColor: '#0066cc', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Generar / editar designación
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <input
+                value={designationDraft.subject}
+                onChange={(e) => setDesignationDraft((prev) => prev ? { ...prev, subject: e.target.value } : prev)}
+                style={{ padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+              <textarea
+                value={designationDraft.body}
+                onChange={(e) => setDesignationDraft((prev) => prev ? { ...prev, body: e.target.value } : prev)}
+                style={{ minHeight: '180px', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button onClick={sendDesignation} style={{ padding: '0.75rem 1rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+                  Enviar correo de designación
+                </button>
+                <button onClick={() => setDesignationDraft(null)} style={{ padding: '0.75rem 1rem', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
           <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px' }}>
             <h2 style={{ marginBottom: '1rem' }}>Información del Viaje</h2>
@@ -311,6 +540,125 @@ export default function CaseDetailPage() {
               <p>No hay tareas pendientes</p>
             )}
           </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Expediente y Workflow Institucional</h2>
+          <p style={{ color: '#666' }}>
+            Estado actual: <strong>{caseDetail.status}</strong>
+          </p>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <button onClick={() => runWorkflowAction('MARK_EXPEDIENTE_COMPLETE')} style={{ padding: '0.75rem 1rem', backgroundColor: '#0066cc', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Marcar expediente completo
+            </button>
+            <button onClick={() => runWorkflowAction('SEND_DESPACHO')} style={{ padding: '0.75rem 1rem', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Enviar a despacho
+            </button>
+            <button onClick={() => runWorkflowAction('DESPACHO_APPROVE')} style={{ padding: '0.75rem 1rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Despacho aprueba / enviar a Consejo
+            </button>
+            <button onClick={() => runWorkflowAction('DESPACHO_RETURN')} style={{ padding: '0.75rem 1rem', backgroundColor: '#fd7e14', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Devolver a Unidad de Viajes
+            </button>
+            <button onClick={() => runWorkflowAction('RECEIVE_SIGNED')} style={{ padding: '0.75rem 1rem', backgroundColor: '#20c997', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Confirmar expediente firmado recibido
+            </button>
+            <button onClick={() => runWorkflowAction('CLOSE', { comment: prompt('Comentario de cierre') || '' })} style={{ padding: '0.75rem 1rem', backgroundColor: '#343a40', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Cerrar expediente
+            </button>
+          </div>
+          <div style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: '6px' }}>
+            <strong>Consejo Directivo / firma presencial</strong>
+            <p style={{ color: '#666', margin: '0.5rem 0' }}>La firma presencial es la regla general. La firma digital justificada puede registrarse por API con soporte documental.</p>
+            <input type="file" onChange={(e) => setSignedFile(e.target.files?.[0] || null)} />
+            <button onClick={signWorkflow} style={{ marginLeft: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Registrar firma
+            </button>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Documentos Generados</h2>
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <button onClick={() => startGeneratedDocument('FORMULARIO_SOLICITUD_VIAJE')} style={{ padding: '0.75rem 1rem', backgroundColor: '#0066cc', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Formulario solicitud viaje
+            </button>
+            <button onClick={() => startGeneratedDocument('CARTA_MINISTRO_ADMINISTRATIVO')} style={{ padding: '0.75rem 1rem', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '4px' }}>
+              Carta Ministro Administrativo
+            </button>
+          </div>
+          {generatedDraft && (
+            <div style={{ marginBottom: '1rem' }}>
+              <textarea
+                value={generatedDraft.content}
+                onChange={(e) => setGeneratedDraft((prev) => prev ? { ...prev, content: e.target.value } : prev)}
+                style={{ width: '100%', minHeight: '220px', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }}
+              />
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                <button onClick={() => saveGeneratedDocument('SAVE_DRAFT')} style={{ padding: '0.75rem 1rem', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+                  Guardar borrador
+                </button>
+                <button onClick={() => saveGeneratedDocument('GENERATE')} style={{ padding: '0.75rem 1rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+                  Generar PDF y adjuntar
+                </button>
+              </div>
+            </div>
+          )}
+          {caseDetail.generatedDocuments?.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {caseDetail.generatedDocuments.map((doc) => (
+                <div key={doc.id} style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '0.75rem' }}>
+                  <strong>{doc.title}</strong> · {doc.status}
+                  {doc.document && (
+                    <a href={doc.document.blobUrl} target="_blank" rel="noopener noreferrer" style={{ marginLeft: '1rem', color: '#0066cc' }}>
+                      Abrir PDF
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+          <h2 style={{ marginBottom: '1rem' }}>Checklist Documental</h2>
+          {caseDetail.documentRequirements?.length === 0 ? (
+            <p>No hay checklist documental para este caso.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {caseDetail.documentRequirements.map((req) => (
+                <div key={req.id} style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <strong>{req.label}</strong> {req.required ? <span style={{ color: '#dc3545' }}>*</span> : <span style={{ color: '#666' }}>(opcional)</span>}
+                      <p style={{ margin: '0.25rem 0', color: '#666' }}>Estado: {req.status}</p>
+                      {req.document && (
+                        <a href={req.document.blobUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0066cc' }}>
+                          {req.document.originalFilename}
+                        </a>
+                      )}
+                      {req.observations && <p style={{ color: '#dc3545', margin: '0.5rem 0 0 0' }}>{req.observations}</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button onClick={() => updateRequirement(req.id, 'VALIDATE')} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+                        Validar
+                      </button>
+                      <button onClick={() => updateRequirement(req.id, 'REJECT')} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px' }}>
+                        Rechazar
+                      </button>
+                      <button onClick={() => updateRequirement(req.id, 'WAIVE')} style={{ padding: '0.5rem 0.75rem', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+                        No aplica
+                      </button>
+                      <label style={{ padding: '0.5rem 0.75rem', backgroundColor: '#0066cc', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>
+                        {uploadingRequirementId === req.id ? 'Subiendo...' : 'Subir'}
+                        <input type="file" style={{ display: 'none' }} onChange={(e) => uploadStaffDocument(req.id, req.docType, e.target.files?.[0] || null)} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>

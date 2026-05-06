@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { processTaskAction } from '@/lib/workflow/actions'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { user, response } = await getAuthorizedUser(request)
+  if (!user) {
+    return response!
   }
 
   try {
@@ -18,10 +18,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
-    const result = await processTaskAction(params.id, authUser.userId, action, comment)
+    const result = await processTaskAction(params.id, user.userId, action, comment)
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      const status = result.error === 'Forbidden' ? 403 : 400
+      return NextResponse.json({ error: result.error }, { status })
     }
 
     return NextResponse.json({

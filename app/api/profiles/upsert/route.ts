@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 import { normalizeEmail } from '@/lib/intake/parser'
 
 export async function POST(request: NextRequest) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { user, response } = await getAuthorizedUser(request, 'profiles:update')
+  if (!user) {
+    return response!
   }
 
   try {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.auditLog.create({
       data: {
-        actorUserId: authUser.userId,
+        actorUserId: user.userId,
         profileId: profile.id,
         action: 'PROFILE_UPSERTED',
         details: { source: 'MANUAL', data: profileData },

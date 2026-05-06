@@ -38,6 +38,23 @@ export async function GET(
         },
         orderBy: { createdAt: 'desc' },
       },
+      designations: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+      documentRequirements: {
+        include: {
+          document: true,
+          validatedByUser: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+      generatedDocuments: {
+        include: { document: true },
+        orderBy: { createdAt: 'desc' },
+      },
       auditLogs: {
         include: {
           actor: {

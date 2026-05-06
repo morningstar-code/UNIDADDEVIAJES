@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 import { CaseSource, CaseStatus, WorkflowStep, TaskStatus } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { user, response } = await getAuthorizedUser(request, 'cases:create')
+  if (!user) {
+    return response!
   }
 
   try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const caseRecord = await prisma.case.create({
       data: {
         profileId,
-        createdByUserId: authUser.userId,
+        createdByUserId: user.userId,
         source: CaseSource.MANUAL,
         status: CaseStatus.RECEIVED,
         destinoPais: caseData.destinoPais,
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.auditLog.create({
       data: {
-        actorUserId: authUser.userId,
+        actorUserId: user.userId,
         caseId: caseRecord.id,
         profileId: profile.id,
         action: 'CASE_CREATED',

@@ -13,7 +13,10 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  RI_DIRECTORA
   VIAJES_ANALISTA
+  DESPACHO
+  CONSEJO_DIRECTIVO
   JEFE
   FINANZAS
   RRHH
@@ -23,9 +26,31 @@ enum CaseSource {
   EMAIL_AUTOMATION
   MANUAL
   PUBLIC_FORM
+  MATRIZ
+  DESIGNATION
 }
 
 enum CaseStatus {
+  MATRIZ_REGISTRADA
+  PENDIENTE_PAUTA_RI
+  PAUTA_RI_DADA
+  DESIGNACION_GENERADA
+  DESIGNACION_ENVIADA
+  PENDIENTE_ACEPTACION_COLABORADOR
+  COLABORADOR_ACEPTO
+  COLABORADOR_RECHAZO
+  PENDIENTE_DOCUMENTOS
+  DOCUMENTOS_EN_REVISION
+  DOCUMENTOS_COMPLETOS
+  FORMULARIO_EN_ELABORACION
+  CARTA_EN_ELABORACION
+  EXPEDIENTE_ARMADO
+  DESPACHO_REVIEW
+  CONSEJO_DIRECTIVO_FIRMA
+  EXPEDIENTE_FIRMADO_RECIBIDO
+  COORDINACION_ADMINISTRATIVA
+  CANCELLED
+  FIRMA_DIGITAL_PENDIENTE_JUSTIFICACION
   RECEIVED
   DOCS_VALIDATION
   TECH_REVIEW
@@ -39,6 +64,19 @@ enum CaseStatus {
 }
 
 enum WorkflowStep {
+  PENDIENTE_PAUTA_RI
+  DESIGNATION
+  COLLABORATOR_ACCEPTANCE
+  DOCUMENT_COLLECTION
+  DOCUMENT_REVIEW
+  FORMULARIO_SOLICITUD
+  CARTA_MINISTRO
+  EXPEDIENTE_REVIEW
+  DESPACHO_REVIEW
+  CONSEJO_DIRECTIVO_FIRMA
+  EXPEDIENTE_FIRMADO_RECEIPT
+  COORDINACION_ADMINISTRATIVA
+  CLOSURE
   DOCS_VALIDATION
   TECH_REVIEW
   MANAGER_APPROVAL
@@ -55,17 +93,83 @@ enum TaskStatus {
 enum DocumentType {
   CEDULA
   PASAPORTE
+  VISA
   FOTO
   CARTA_INVITACION
+  INVITACION
   AGENDA
   TICKET
   MEMO_APROBACION
+  FORMULARIO_SOLICITUD_VIAJE
+  CARTA_MINISTRO_ADMINISTRATIVO
+  EXPEDIENTE_FIRMADO
+  JUSTIFICACION_FIRMA_DIGITAL
+  FORMULARIO_OFICIAL
+  CARTA_MINISTRO
+  EXPEDIENTE_COMPLETO
+  DOCUMENTO_PRELIMINAR
   OTRO
 }
 
 enum ProcessedMessageStatus {
   OK
   FAILED
+}
+
+enum TravelMatrixStatus {
+  MATRIZ_REGISTRADA
+  PENDIENTE_PAUTA_RI
+  PAUTA_RI_DADA
+  CONVERTIDO_A_CASO
+  CANCELLED
+}
+
+enum DesignationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentRequirementStatus {
+  PENDING
+  UPLOADED
+  VALIDATED
+  REJECTED
+  WAIVED
+}
+
+enum GeneratedDocumentType {
+  FORMULARIO_SOLICITUD_VIAJE
+  CARTA_MINISTRO_ADMINISTRATIVO
+}
+
+enum GeneratedDocumentStatus {
+  DRAFT
+  GENERATED
+  ATTACHED
+}
+
+enum SignatureType {
+  PRESENCIAL
+  DIGITAL_JUSTIFICADA
+}
+
+enum NotificationType {
+  MATRIZ_CREATED
+  TRAVEL_WINDOW_30_DAYS
+  RI_PAUTA_GIVEN
+  DESIGNATION_SENT
+  COLLABORATOR_ACCEPTED
+  COLLABORATOR_REJECTED
+  DOCUMENT_UPLOADED
+  DOCUMENT_REJECTED
+  EXPEDIENTE_COMPLETE
+  SENT_TO_DESPACHO
+  SENT_TO_CONSEJO
+  EXPEDIENTE_SIGNED
+  CASE_CLOSED
 }
 
 model User {
@@ -83,6 +187,14 @@ model User {
   assignedTasks     Task[]
   auditLogs         AuditLog[]
   processedMessages ProcessedMessage[]
+  createdMatrixEntries TravelMatrixEntry[] @relation("MatrixCreator")
+  responsibleMatrixEntries TravelMatrixEntry[] @relation("MatrixResponsible")
+  pautaMatrixEntries TravelMatrixEntry[] @relation("MatrixPautaUser")
+  uploadedDocuments Document[] @relation("DocumentUploader")
+  validatedRequirements DocumentRequirement[] @relation("RequirementValidator")
+  notifications Notification[]
+  readReceipts ReadReceipt[]
+  caseClosures CaseClosure[]
 
   @@index([email])
   @@index([roleId])
@@ -115,6 +227,7 @@ model Profile {
   cases     Case[]
   documents Document[]
   auditLogs AuditLog[]
+  matrixEntries TravelMatrixEntry[]
 
   @@index([primaryEmail])
   @@index([cedula])
@@ -142,17 +255,40 @@ model Case {
   observaciones           String?    @db.Text
   clientGeneratedId       String?    @unique // For idempotency in public form
   contenidoRaw            String?    @db.Text
+  matrixEntryId           String?    @unique
+  matrixEntry             TravelMatrixEntry? @relation("MatrixCase", fields: [matrixEntryId], references: [id])
+  currentWorkflowStep     WorkflowStep?
+  priority                String?
+  dueAt                   DateTime?
+  expedienteCompleto      Boolean    @default(false)
+  expedienteCompletedAt   DateTime?
+  expedienteSentToDespachoAt DateTime?
+  expedienteSentToConsejoAt DateTime?
+  signedAt                DateTime?
+  signatureType           SignatureType?
+  signedBy                String?
+  digitalSignatureJustification String? @db.Text
+  closedAt                DateTime?
+  closureComment          String?    @db.Text
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt
 
-  tasks     Task[]
-  documents Document[]
-  auditLogs AuditLog[]
+  tasks                Task[]
+  documents            Document[]
+  auditLogs            AuditLog[]
+  designations         Designation[]
+  documentRequirements DocumentRequirement[]
+  generatedDocuments   GeneratedDocument[]
+  notifications        Notification[]
+  readReceipts         ReadReceipt[]
+  closures             CaseClosure[]
 
   @@index([profileId])
   @@index([status])
   @@index([createdAt])
   @@index([clientGeneratedId])
+  @@index([matrixEntryId])
+  @@index([currentWorkflowStep])
 }
 
 model Task {
@@ -169,6 +305,7 @@ model Task {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   completedAt    DateTime?
+  comment        String?       @db.Text
 
   @@index([caseId])
   @@index([assignedUserId])
@@ -182,6 +319,8 @@ model Document {
   profile              Profile?     @relation(fields: [profileId], references: [id])
   caseId               String?
   case                 Case?        @relation(fields: [caseId], references: [id])
+  matrixEntryId        String?
+  matrixEntry          TravelMatrixEntry? @relation(fields: [matrixEntryId], references: [id])
   docType              DocumentType
   originalFilename     String
   mimeType             String
@@ -190,13 +329,22 @@ model Document {
   blobPathname         String
   checksumSha256       String?
   isCurrent            Boolean      @default(true)
+  status               DocumentRequirementStatus @default(UPLOADED)
+  uploadedByUserId     String?
+  uploadedByUser       User?        @relation("DocumentUploader", fields: [uploadedByUserId], references: [id])
+  uploadedByName       String?
+  observations         String?      @db.Text
   sourceEmailMessageId String?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
+  requirements         DocumentRequirement[]
+  generatedDocuments   GeneratedDocument[]
 
   @@index([profileId])
   @@index([caseId])
+  @@index([matrixEntryId])
   @@index([docType])
+  @@index([status])
 }
 
 model ProcessedMessage {
@@ -231,4 +379,168 @@ model AuditLog {
   @@index([profileId])
   @@index([action])
   @@index([createdAt])
+}
+
+model TravelMatrixEntry {
+  id                       String             @id @default(uuid())
+  eventName                String
+  country                  String
+  city                     String?
+  eventStartDate           DateTime
+  eventEndDate             DateTime?
+  estimatedDepartureDate   DateTime?
+  estimatedReturnDate      DateTime?
+  collaboratorName         String?
+  collaboratorEmail        String?
+  collaboratorPosition     String?
+  collaboratorArea         String?
+  profileId                String?
+  profile                  Profile?           @relation(fields: [profileId], references: [id])
+  organizerInstitution     String?
+  objective                String?            @db.Text
+  perDiemType              String?
+  observations             String?            @db.Text
+  status                   TravelMatrixStatus @default(MATRIZ_REGISTRADA)
+  responsibleUserId        String?
+  responsibleUser          User?              @relation("MatrixResponsible", fields: [responsibleUserId], references: [id])
+  createdByUserId          String?
+  createdByUser            User?              @relation("MatrixCreator", fields: [createdByUserId], references: [id])
+  pautaGivenByUserId       String?
+  pautaGivenByUser         User?              @relation("MatrixPautaUser", fields: [pautaGivenByUserId], references: [id])
+  pautaGivenAt             DateTime?
+  convertedCaseId          String?            @unique
+  convertedCase            Case?              @relation("MatrixCase")
+  documents                Document[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  @@index([status])
+  @@index([eventStartDate])
+  @@index([estimatedDepartureDate])
+  @@index([country])
+  @@index([collaboratorEmail])
+  @@index([responsibleUserId])
+}
+
+model Designation {
+  id                    String            @id @default(uuid())
+  caseId                String
+  case                  Case              @relation(fields: [caseId], references: [id])
+  collaboratorName      String?
+  collaboratorEmail     String
+  collaboratorPosition  String?
+  collaboratorArea      String?
+  subject               String
+  body                  String            @db.Text
+  token                 String            @unique
+  tokenExpiresAt        DateTime
+  status                DesignationStatus @default(DRAFT)
+  sentAt                DateTime?
+  sentByUserId          String?
+  respondedAt           DateTime?
+  acceptedTerms         Boolean           @default(false)
+  confirmedAvailability Boolean           @default(false)
+  responseComment       String?           @db.Text
+  rejectionReason       String?           @db.Text
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([caseId])
+  @@index([collaboratorEmail])
+  @@index([status])
+  @@index([tokenExpiresAt])
+}
+
+model DocumentRequirement {
+  id                    String                    @id @default(uuid())
+  caseId                String
+  case                  Case                      @relation(fields: [caseId], references: [id])
+  docType               DocumentType
+  label                 String
+  required              Boolean                   @default(true)
+  status                DocumentRequirementStatus @default(PENDING)
+  documentId            String?
+  document              Document?                 @relation(fields: [documentId], references: [id])
+  uploadedByUserId      String?
+  uploadedByName        String?
+  uploadedAt            DateTime?
+  validatedByUserId     String?
+  validatedByUser       User?                     @relation("RequirementValidator", fields: [validatedByUserId], references: [id])
+  validatedAt           DateTime?
+  observations          String?                   @db.Text
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@unique([caseId, docType])
+  @@index([caseId])
+  @@index([status])
+  @@index([docType])
+}
+
+model GeneratedDocument {
+  id              String                  @id @default(uuid())
+  caseId          String
+  case            Case                    @relation(fields: [caseId], references: [id])
+  type            GeneratedDocumentType
+  title           String
+  draftContent    String                  @db.Text
+  status          GeneratedDocumentStatus @default(DRAFT)
+  documentId      String?
+  document        Document?               @relation(fields: [documentId], references: [id])
+  generatedAt     DateTime?
+  generatedByUserId String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@unique([caseId, type])
+  @@index([caseId])
+  @@index([type])
+  @@index([status])
+}
+
+model ReadReceipt {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id])
+  readAt    DateTime @default(now())
+
+  @@unique([userId, caseId])
+  @@index([userId])
+  @@index([caseId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String?
+  user      User?            @relation(fields: [userId], references: [id])
+  caseId    String?
+  case      Case?            @relation(fields: [caseId], references: [id])
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([caseId])
+  @@index([type])
+  @@index([readAt])
+  @@index([createdAt])
+}
+
+model CaseClosure {
+  id             String   @id @default(uuid())
+  caseId         String
+  case           Case     @relation(fields: [caseId], references: [id])
+  closedByUserId String
+  closedByUser   User     @relation(fields: [closedByUserId], references: [id])
+  comment        String   @db.Text
+  closedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([caseId])
+  @@index([closedByUserId])
+  @@index([closedAt])
 }

@@ -35,6 +35,11 @@ export default function SolicitudesPage() {
   const [cases, setCases] = useState<Case[]>([])
   const [loadingCases, setLoadingCases] = useState(true)
   const [filter, setFilter] = useState<'all' | 'PUBLIC_FORM'>('all')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [countryFilter, setCountryFilter] = useState('')
+  const [collaboratorFilter, setCollaboratorFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
   const [lastCaseId, setLastCaseId] = useState<string | null>(null)
   const [viewedCases, setViewedCases] = useState<Set<string>>(new Set())
@@ -63,9 +68,12 @@ export default function SolicitudesPage() {
     try {
       const token = localStorage.getItem('token')
       const source = filter === 'all' ? null : filter
-      const url = source
-        ? `/api/cases/recent?source=${source}`
-        : '/api/cases/recent'
+      const params = new URLSearchParams({ page: String(page), limit: '20' })
+      if (source) params.set('source', source)
+      if (statusFilter) params.set('status', statusFilter)
+      if (countryFilter) params.set('country', countryFilter)
+      if (collaboratorFilter) params.set('collaborator', collaboratorFilter)
+      const url = `/api/cases/recent?${params.toString()}`
 
       const response = await fetch(url, {
         headers: {
@@ -91,13 +99,14 @@ export default function SolicitudesPage() {
         }
         
         setCases(newCases)
+        setTotalCount(data.totalCount || 0)
       }
     } catch (error) {
       console.error('Error fetching cases:', error)
     } finally {
       setLoadingCases(false)
     }
-  }, [filter, lastCaseId])
+  }, [filter, statusFilter, countryFilter, collaboratorFilter, page, lastCaseId])
 
   useEffect(() => {
     if (!loading && !user) {
@@ -237,7 +246,7 @@ export default function SolicitudesPage() {
         >
           <span style={{ fontWeight: '500' }}>Filtrar por:</span>
           <button
-            onClick={() => setFilter('all')}
+            onClick={() => { setFilter('all'); setPage(1) }}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: filter === 'all' ? '#0066cc' : '#f0f0f0',
@@ -250,7 +259,7 @@ export default function SolicitudesPage() {
             Todas
           </button>
           <button
-            onClick={() => setFilter('PUBLIC_FORM')}
+            onClick={() => { setFilter('PUBLIC_FORM'); setPage(1) }}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: filter === 'PUBLIC_FORM' ? '#0066cc' : '#f0f0f0',
@@ -262,6 +271,18 @@ export default function SolicitudesPage() {
           >
             Formulario Público
           </button>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }} style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}>
+            <option value="">Todos los estados</option>
+            <option value="RECEIVED">Recibido</option>
+            <option value="PENDIENTE_DOCUMENTOS">Pendiente documentos</option>
+            <option value="DOCUMENTOS_EN_REVISION">Documentos en revisión</option>
+            <option value="DOCUMENTOS_COMPLETOS">Documentos completos</option>
+            <option value="DESPACHO_REVIEW">Despacho</option>
+            <option value="CONSEJO_DIRECTIVO_FIRMA">Consejo Directivo</option>
+            <option value="CLOSED">Cerrado</option>
+          </select>
+          <input value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setPage(1) }} placeholder="País" style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }} />
+          <input value={collaboratorFilter} onChange={(e) => { setCollaboratorFilter(e.target.value); setPage(1) }} placeholder="Colaborador" style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }} />
         </div>
 
         {/* Cases List */}
@@ -408,6 +429,14 @@ export default function SolicitudesPage() {
               )
             })
           )}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+          <span style={{ color: '#666' }}>Total: {totalCount}</span>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))} style={{ padding: '0.5rem 1rem' }}>Anterior</button>
+            <span style={{ padding: '0.5rem 1rem' }}>Página {page}</span>
+            <button disabled={page * 20 >= totalCount} onClick={() => setPage((prev) => prev + 1)} style={{ padding: '0.5rem 1rem' }}>Siguiente</button>
+          </div>
         </div>
       </main>
     </div>

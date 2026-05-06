@@ -6,6 +6,15 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding database...')
 
+  const commonReadPermissions = [
+    'dashboard:read',
+    'cases:read',
+    'profiles:read',
+    'documents:read',
+    'matrix:read',
+    'notifications:read',
+  ]
+
   // Create roles
   const roles = [
     {
@@ -13,57 +22,104 @@ async function main() {
       permissions: ['*'], // All permissions
     },
     {
-      name: 'VIAJES_ANALISTA',
+      name: 'RI_DIRECTORA',
       permissions: [
-        'cases:read',
+        ...commonReadPermissions,
+        'matrix:create',
+        'matrix:update',
+        'matrix:pauta',
+        'matrix:convert',
         'cases:create',
         'cases:update',
         'tasks:read',
         'tasks:approve',
         'tasks:reject',
         'tasks:request_info',
-        'profiles:read',
+      ],
+    },
+    {
+      name: 'VIAJES_ANALISTA',
+      permissions: [
+        ...commonReadPermissions,
+        'cases:create',
+        'cases:update',
+        'cases:close',
+        'matrix:convert',
+        'designations:create',
+        'designations:send',
+        'tasks:read',
+        'tasks:approve',
+        'tasks:reject',
+        'tasks:request_info',
         'profiles:create',
         'profiles:update',
-        'documents:read',
+        'documents:upload',
+        'documents:validate',
+        'documents:reject',
+        'documents:generate',
+        'expedientes:read',
+        'expedientes:update',
+        'expedientes:send_despacho',
+      ],
+    },
+    {
+      name: 'DESPACHO',
+      permissions: [
+        ...commonReadPermissions,
+        'tasks:read',
+        'tasks:approve',
+        'tasks:reject',
+        'tasks:request_info',
+        'expedientes:read',
+        'expedientes:review',
+        'expedientes:send_consejo',
+      ],
+    },
+    {
+      name: 'CONSEJO_DIRECTIVO',
+      permissions: [
+        ...commonReadPermissions,
+        'tasks:read',
+        'tasks:approve',
+        'tasks:reject',
+        'tasks:request_info',
+        'expedientes:read',
+        'expedientes:sign',
         'documents:upload',
       ],
     },
     {
       name: 'JEFE',
       permissions: [
-        'cases:read',
+        ...commonReadPermissions,
         'cases:update',
         'tasks:read',
         'tasks:approve',
         'tasks:reject',
         'tasks:request_info',
-        'profiles:read',
-        'documents:read',
+        'expedientes:read',
       ],
     },
     {
       name: 'FINANZAS',
       permissions: [
-        'cases:read',
+        ...commonReadPermissions,
         'tasks:read',
         'tasks:approve',
         'tasks:reject',
         'tasks:request_info',
-        'profiles:read',
-        'documents:read',
+        'expedientes:read',
       ],
     },
     {
       name: 'RRHH',
       permissions: [
-        'cases:read',
+        ...commonReadPermissions,
         'tasks:read',
         'tasks:approve',
         'tasks:reject',
         'tasks:request_info',
-        'profiles:read',
-        'documents:read',
+        'expedientes:read',
       ],
     },
   ]
