@@ -26,6 +26,17 @@ function forbidden() {
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
+function auditActionForWorkflow(action: string) {
+  const actions: Record<string, string> = {
+    APPROVE_LIQUIDATION: 'LIQUIDACION_APROBADA',
+    RETURN_LIQUIDATION: 'LIQUIDACION_DEVUELTA_CORRECCION',
+    NO_APLICA_LIQUIDACION: 'NO_APLICA_LIQUIDACION',
+    CLOSE: 'CASO_CERRADO',
+    REQUEST_LIQUIDATION: 'LIQUIDACION_ENVIADA_REVISION',
+  }
+  return actions[action] || action
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -180,6 +191,57 @@ export async function POST(
           currentWorkflowStep: WorkflowStep.COORDINACION_ADMINISTRATIVA,
         },
       })
+    } else if (action === 'MARK_TRAVEL_COMPLETED') {
+      if (!hasPermission(user, 'cases:update')) return forbidden()
+      await prisma.case.update({
+        where: { id: params.id },
+        data: {
+          status: CaseStatus.VIAJE_REALIZADO,
+          currentWorkflowStep: WorkflowStep.POST_TRAVEL,
+        },
+      })
+    } else if (action === 'REQUEST_LIQUIDATION') {
+      if (!hasPermission(user, 'liquidation:review')) return forbidden()
+      await prisma.case.update({
+        where: { id: params.id },
+        data: {
+          status: CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION,
+          currentWorkflowStep: WorkflowStep.POST_TRAVEL,
+        },
+      })
+    } else if (action === 'APPROVE_LIQUIDATION') {
+      if (!hasPermission(user, 'liquidation:approve')) return forbidden()
+      await prisma.case.update({
+        where: { id: params.id },
+        data: {
+          status: CaseStatus.LIQUIDACION_APROBADA,
+          currentWorkflowStep: WorkflowStep.CLOSURE,
+        },
+      })
+    } else if (action === 'RETURN_LIQUIDATION') {
+      if (!hasPermission(user, 'liquidation:return')) return forbidden()
+      const observations = isFormData ? String((payload as FormData).get('observations') || '') : payload.observations
+      if (!observations) return NextResponse.json({ error: 'Observaciones requeridas' }, { status: 400 })
+      await prisma.case.update({
+        where: { id: params.id },
+        data: {
+          status: CaseStatus.LIQUIDACION_REQUIERE_CORRECCION,
+          currentWorkflowStep: WorkflowStep.POST_TRAVEL,
+          observaciones: observations,
+        },
+      })
+    } else if (action === 'NO_APLICA_LIQUIDACION') {
+      if (!hasPermission(user, 'liquidation:waive')) return forbidden()
+      const noAplicaComment = isFormData ? String((payload as FormData).get('comment') || '') : payload.comment
+      if (!noAplicaComment) return NextResponse.json({ error: 'Comentario obligatorio' }, { status: 400 })
+      await prisma.case.update({
+        where: { id: params.id },
+        data: {
+          status: CaseStatus.NO_APLICA_LIQUIDACION,
+          currentWorkflowStep: WorkflowStep.CLOSURE,
+          closureComment: noAplicaComment,
+        },
+      })
     } else if (action === 'CLOSE') {
       if (!hasPermission(user, 'cases:close')) return forbidden()
       const comment = isFormData ? String((payload as FormData).get('comment') || '') : payload.comment
@@ -194,6 +256,17 @@ export async function POST(
       if (minimumDocs < 3) {
         return NextResponse.json(
           { error: 'El expediente debe tener formulario, carta y expediente firmado antes de cerrar' },
+          { status: 400 }
+        )
+      }
+      const closableStatuses: CaseStatus[] = [
+        CaseStatus.LIQUIDACION_APROBADA,
+        CaseStatus.NO_APLICA_LIQUIDACION,
+        CaseStatus.CLOSED,
+      ]
+      if (!closableStatuses.includes(caseRecord.status)) {
+        return NextResponse.json(
+          { error: 'El caso solo puede cerrarse con liquidacion aprobada o no aplica liquidacion' },
           { status: 400 }
         )
       }
@@ -214,7 +287,7 @@ export async function POST(
         actorUserId: user.userId,
         caseId: params.id,
         profileId: caseRecord.profileId,
-        action,
+        action: auditActionForWorkflow(action),
         details: { source: 'workflow' },
       },
     })

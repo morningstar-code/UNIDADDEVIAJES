@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { CaseStatus, DesignationStatus, DocumentRequirementStatus, WorkflowStep } from '@prisma/client'
+import { CaseStatus, DesignationStatus, DocumentRequirementStatus, DocumentType, WorkflowStep } from '@prisma/client'
 
 async function getDesignation(token: string) {
   return prisma.designation.findUnique({
@@ -42,6 +42,11 @@ export async function GET(
       motivo: designation.case.motivo,
       institucionOrganizadora: designation.case.institucionOrganizadora,
       requirements: designation.case.documentRequirements,
+      generatedDocuments: await prisma.generatedDocument.findMany({
+        where: { caseId: designation.case.id },
+        include: { document: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     },
   })
 }
@@ -74,14 +79,14 @@ export async function POST(
 
     await prisma.case.update({
       where: { id: designation.caseId },
-      data: { status: CaseStatus.COLABORADOR_RECHAZO },
+      data: { status: CaseStatus.COLABORADOR_RECHAZO, currentWorkflowStep: WorkflowStep.COLLABORATOR_ACCEPTANCE },
     })
 
     await prisma.auditLog.create({
       data: {
         caseId: designation.caseId,
         profileId: designation.case.profileId,
-        action: 'COLLABORATOR_REJECTED_DESIGNATION',
+        action: 'COLABORADOR_RECHAZO_DESIGNACION',
         details: { designationId: designation.id, reason: data.reason },
       },
     })
@@ -125,11 +130,38 @@ export async function POST(
     data: { status: DocumentRequirementStatus.PENDING },
   })
 
+  await prisma.documentRequirement.upsert({
+    where: {
+      caseId_docType: {
+        caseId: designation.caseId,
+        docType: DocumentType.ACEPTACION_COLABORADOR,
+      },
+    },
+    update: {
+      status: DocumentRequirementStatus.VALIDATED,
+      uploadedByName: designation.collaboratorName || designation.collaboratorEmail,
+      uploadedAt: new Date(),
+      validatedAt: new Date(),
+      observations: data.comment || undefined,
+    },
+    create: {
+      caseId: designation.caseId,
+      docType: DocumentType.ACEPTACION_COLABORADOR,
+      label: 'Aceptacion del colaborador',
+      required: true,
+      status: DocumentRequirementStatus.VALIDATED,
+      uploadedByName: designation.collaboratorName || designation.collaboratorEmail,
+      uploadedAt: new Date(),
+      validatedAt: new Date(),
+      observations: data.comment || undefined,
+    },
+  })
+
   await prisma.auditLog.create({
     data: {
       caseId: designation.caseId,
       profileId: designation.case.profileId,
-      action: 'COLLABORATOR_ACCEPTED_DESIGNATION',
+      action: 'COLABORADOR_ACEPTO_DESIGNACION',
       details: {
         designationId: designation.id,
         acceptedTerms: !!data.acceptedTerms,

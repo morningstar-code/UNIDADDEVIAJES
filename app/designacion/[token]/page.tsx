@@ -26,6 +26,12 @@ interface DesignationData {
     motivo: string | null
     institucionOrganizadora: string | null
     requirements: Requirement[]
+    generatedDocuments: Array<{
+      id: string
+      type: string
+      title: string
+      document: { blobUrl: string; originalFilename: string } | null
+    }>
   }
 }
 
@@ -83,6 +89,24 @@ export default function DesignacionPage() {
       setData(refreshed)
     } else {
       setMessage((await response.json()).error || 'No se pudo subir el documento')
+    }
+  }
+
+  const uploadPostTravelDocument = async (docType: string, file: File | null) => {
+    if (!file) return
+    const formData = new FormData()
+    formData.append('docType', docType)
+    formData.append('file', file)
+    const response = await fetch(`/api/designacion/${token}/documents`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (response.ok) {
+      setMessage('Documento post-viaje subido correctamente.')
+      const refreshed = await fetch(`/api/designacion/${token}`).then((res) => res.json())
+      setData(refreshed)
+    } else {
+      setMessage((await response.json()).error || 'No se pudo subir el documento post-viaje')
     }
   }
 
@@ -144,6 +168,32 @@ export default function DesignacionPage() {
             ))}
           </div>
         </section>
+
+        <section style={cardStyle}>
+          <h2>Post-viaje: informe y liquidacion</h2>
+          <p style={{ color: '#666' }}>Si recibio viaticos o fondos, descargue el formulario y cargue los soportes al finalizar el viaje.</p>
+          {data.case.generatedDocuments.some((doc) => ['FORMULARIO_LIQUIDACION_INFORMATIVO', 'FORMULARIO_LIQUIDACION'].includes(doc.type) && doc.document) ? (
+            <a href={`/api/designacion/${token}/liquidation-form`} target="_blank" rel="noopener noreferrer" style={linkButton}>
+              Descargar formulario de liquidacion
+            </a>
+          ) : (
+            <p style={{ color: '#666' }}>La Unidad de Viajes aun no ha generado el formulario de liquidacion.</p>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+            {[
+              ['FORMULARIO_LIQUIDACION_COMPLETADO', 'Formulario completado'],
+              ['FACTURAS_LIQUIDACION', 'Facturas'],
+              ['VOLANTE_DEPOSITO_REMANENTE', 'Volante deposito remanente'],
+              ['INFORME_EVENTO', 'Informe del evento'],
+              ['OTROS_ANEXOS_LIQUIDACION', 'Otros anexos'],
+            ].map(([docType, label]) => (
+              <label key={docType} style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '0.75rem' }}>
+                <strong>{label}</strong>
+                <input type="file" style={{ display: 'block', marginTop: '0.5rem' }} onChange={(e) => uploadPostTravelDocument(docType, e.target.files?.[0] || null)} />
+              </label>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   )
@@ -168,4 +218,10 @@ const primaryButton: React.CSSProperties = {
 const dangerButton: React.CSSProperties = {
   ...primaryButton,
   backgroundColor: '#dc3545',
+}
+
+const linkButton: React.CSSProperties = {
+  ...primaryButton,
+  display: 'inline-block',
+  textDecoration: 'none',
 }

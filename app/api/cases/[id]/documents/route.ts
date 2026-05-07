@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
-import { CaseStatus, DocumentRequirementStatus, DocumentType } from '@prisma/client'
+import { CaseStatus, DocumentRequirementStatus, DocumentType, WorkflowStep } from '@prisma/client'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -78,7 +78,10 @@ export async function POST(
 
     await prisma.case.update({
       where: { id: params.id },
-      data: { status: CaseStatus.DOCUMENTOS_EN_REVISION },
+      data: {
+        status: isPostTravelDocument(docType) ? CaseStatus.LIQUIDACION_EN_REVISION : CaseStatus.DOCUMENTOS_EN_REVISION,
+        currentWorkflowStep: isPostTravelDocument(docType) ? WorkflowStep.LIQUIDATION_REVIEW : WorkflowStep.DOCUMENT_REVIEW,
+      },
     })
 
     await prisma.auditLog.create({
@@ -86,7 +89,7 @@ export async function POST(
         actorUserId: user.userId,
         caseId: params.id,
         profileId: caseRecord.profileId,
-        action: 'STAFF_DOCUMENT_UPLOADED',
+        action: isPostTravelDocument(docType) ? auditActionForDocument(docType) : 'STAFF_DOCUMENT_UPLOADED',
         details: { documentId: document.id, docType, filename: file.name },
       },
     })
@@ -96,4 +99,26 @@ export async function POST(
     console.error('Staff upload document error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+function isPostTravelDocument(docType: DocumentType) {
+  const postTravelTypes: DocumentType[] = [
+    DocumentType.FORMULARIO_LIQUIDACION_COMPLETADO,
+    DocumentType.FACTURAS_LIQUIDACION,
+    DocumentType.VOLANTE_DEPOSITO_REMANENTE,
+    DocumentType.INFORME_EVENTO,
+    DocumentType.OTROS_ANEXOS_LIQUIDACION,
+  ]
+  return postTravelTypes.includes(docType)
+}
+
+function auditActionForDocument(docType: DocumentType) {
+  const actions: Partial<Record<DocumentType, string>> = {
+    FORMULARIO_LIQUIDACION_COMPLETADO: 'FORMULARIO_LIQUIDACION_SUBIDO',
+    FACTURAS_LIQUIDACION: 'FACTURAS_SUBIDAS',
+    VOLANTE_DEPOSITO_REMANENTE: 'VOLANTE_DEPOSITO_SUBIDO',
+    INFORME_EVENTO: 'INFORME_EVENTO_SUBIDO',
+    OTROS_ANEXOS_LIQUIDACION: 'OTROS_ANEXOS_LIQUIDACION_SUBIDOS',
+  }
+  return actions[docType] || 'LIQUIDACION_ENVIADA_REVISION'
 }

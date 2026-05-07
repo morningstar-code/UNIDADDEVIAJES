@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { generateSimplePdf } from '@/lib/documents/pdf'
-import { buildMinisterLetterContent, buildTravelRequestContent } from '@/lib/documents/templates'
+import {
+  buildDesignationDocumentContent,
+  buildLiquidationContent,
+  buildMinisterLetterContent,
+  buildTravelRequestContent,
+} from '@/lib/documents/templates'
+import { generateDocx, generateLiquidationXlsx } from '@/lib/documents/ooxml'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
 import {
   CaseStatus,
@@ -13,15 +19,43 @@ import {
 } from '@prisma/client'
 
 function mapGeneratedToDocumentType(type: GeneratedDocumentType) {
-  return type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE
-    ? DocumentType.FORMULARIO_SOLICITUD_VIAJE
-    : DocumentType.CARTA_MINISTRO_ADMINISTRATIVO
+  if (type === GeneratedDocumentType.CORREO_DESIGNACION) return DocumentType.CORREO_DESIGNACION
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO) return DocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO
+  if (type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE) return DocumentType.FORMULARIO_SOLICITUD_VIAJE
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION) return DocumentType.FORMULARIO_LIQUIDACION_GENERADO
+  return DocumentType.CARTA_MINISTRO_ADMINISTRATIVO
 }
 
 function defaultContent(type: GeneratedDocumentType, caseRecord: any) {
-  return type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE
-    ? buildTravelRequestContent(caseRecord)
-    : buildMinisterLetterContent(caseRecord)
+  if (type === GeneratedDocumentType.CORREO_DESIGNACION) return buildDesignationDocumentContent(caseRecord)
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO) return buildLiquidationContent(caseRecord)
+  if (type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE) return buildTravelRequestContent(caseRecord)
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION) return buildLiquidationContent(caseRecord)
+  return buildMinisterLetterContent(caseRecord)
+}
+
+function titleFor(type: GeneratedDocumentType) {
+  if (type === GeneratedDocumentType.CORREO_DESIGNACION) return 'Correo de Designacion'
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO) return 'Formulario de Liquidacion de Fondos / Viaticos - Informativo'
+  if (type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE) return 'Formulario de Solicitud de Viaje'
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION) return 'Formulario de Liquidacion de Fondos / Viaticos'
+  return 'Carta al Ministro Administrativo'
+}
+
+function draftStatusFor(type: GeneratedDocumentType) {
+  if (type === GeneratedDocumentType.CORREO_DESIGNACION) return CaseStatus.DESIGNACION_BORRADOR
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO) return CaseStatus.DESIGNACION_GENERADA
+  if (type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE) return CaseStatus.FORMULARIO_EN_ELABORACION
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION) return CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION
+  return CaseStatus.CARTA_EN_ELABORACION
+}
+
+function generatedStatusFor(type: GeneratedDocumentType) {
+  if (type === GeneratedDocumentType.CORREO_DESIGNACION) return CaseStatus.DESIGNACION_GENERADA
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO) return CaseStatus.DESIGNACION_GENERADA
+  if (type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE) return CaseStatus.FORMULARIO_EN_ELABORACION
+  if (type === GeneratedDocumentType.FORMULARIO_LIQUIDACION) return CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION
+  return CaseStatus.CARTA_EN_ELABORACION
 }
 
 export async function POST(
@@ -46,10 +80,8 @@ export async function POST(
     })
     if (!caseRecord) return NextResponse.json({ error: 'Case not found' }, { status: 404 })
 
-    const title =
-      type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE
-        ? 'Formulario de Solicitud de Viaje'
-        : 'Carta al Ministro Administrativo'
+    const format = (data.format || 'pdf') as 'pdf' | 'docx' | 'xlsx'
+    const title = titleFor(type)
     const draftContent = data.draftContent || defaultContent(type, caseRecord)
 
     const generated = await prisma.generatedDocument.upsert({
@@ -72,25 +104,46 @@ export async function POST(
     if (action === 'SAVE_DRAFT') {
       await prisma.case.update({
         where: { id: params.id },
+        data: { status: draftStatusFor(type) },
+      })
+      await prisma.auditLog.create({
         data: {
-          status:
-            type === GeneratedDocumentType.FORMULARIO_SOLICITUD_VIAJE
-              ? CaseStatus.FORMULARIO_EN_ELABORACION
-              : CaseStatus.CARTA_EN_ELABORACION,
+          actorUserId: user.userId,
+          caseId: params.id,
+          profileId: caseRecord.profileId,
+          action: type === GeneratedDocumentType.CORREO_DESIGNACION ? 'CORREO_DESIGNACION_EDITADO' : 'GENERATED_DOCUMENT_DRAFT_SAVED',
+          details: { type },
         },
       })
       return NextResponse.json(generated)
     }
 
-    const pdf = generateSimplePdf(title, draftContent)
+    const output =
+      type === GeneratedDocumentType.FORMULARIO_LIQUIDACION || format === 'xlsx'
+        ? {
+            buffer: generateLiquidationXlsx(caseRecord),
+            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            extension: 'xlsx',
+          }
+        : format === 'docx' || type === GeneratedDocumentType.CORREO_DESIGNACION
+          ? {
+              buffer: generateDocx(title, draftContent),
+              contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              extension: 'docx',
+            }
+          : {
+              buffer: generateSimplePdf(title, draftContent),
+              contentType: 'application/pdf',
+              extension: 'pdf',
+            }
     const docType = mapGeneratedToDocumentType(type)
-    const fileName = `${type.toLowerCase()}-${params.id.substring(0, 8)}.pdf`
+    const fileName = `${type.toLowerCase()}-${params.id.substring(0, 8)}.${output.extension}`
     const uploadResult = await uploadAttachmentToBlob({
       profileId: caseRecord.profileId,
       caseId: params.id,
       originalFilename: fileName,
-      buffer: pdf,
-      contentType: 'application/pdf',
+      buffer: output.buffer,
+      contentType: output.contentType,
       docType,
     })
 
@@ -99,8 +152,8 @@ export async function POST(
         caseId: params.id,
         docType,
         originalFilename: fileName,
-        mimeType: 'application/pdf',
-        sizeBytes: pdf.length,
+        mimeType: output.contentType,
+        sizeBytes: output.buffer.length,
         blobUrl: uploadResult.blobUrl,
         blobPathname: uploadResult.blobPathname,
         checksumSha256: uploadResult.checksumSha256,
@@ -150,9 +203,19 @@ export async function POST(
         actorUserId: user.userId,
         caseId: params.id,
         profileId: caseRecord.profileId,
-        action: 'GENERATED_DOCUMENT_CREATED',
-        details: { type, documentId: document.id },
+        action:
+          type === GeneratedDocumentType.CORREO_DESIGNACION
+            ? 'CORREO_DESIGNACION_GENERADO'
+            : type === GeneratedDocumentType.FORMULARIO_LIQUIDACION
+              ? 'FORMULARIO_LIQUIDACION_GENERADO'
+              : 'GENERATED_DOCUMENT_CREATED',
+        details: { type, documentId: document.id, format: output.extension },
       },
+    })
+
+    await prisma.case.update({
+      where: { id: params.id },
+      data: { status: generatedStatusFor(type) },
     })
 
     return NextResponse.json({ generatedDocument: generated, document })
