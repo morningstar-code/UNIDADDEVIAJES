@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 
 export async function GET(request: NextRequest) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { user, response } = await getAuthorizedUser(request, 'profiles:read')
+  if (!user) return response!
 
   const searchParams = request.nextUrl.searchParams
   const q = searchParams.get('q') || ''
@@ -70,6 +68,7 @@ export async function GET(request: NextRequest) {
         select: {
           cases: true,
           documents: true,
+          externalDocuments: true,
         },
       },
       cases: {
@@ -104,6 +103,7 @@ export async function GET(request: NextRequest) {
       cargo: profile.cargo,
       casesCount: profile._count.cases,
       documentsCount: profile._count.documents,
+      externalDocumentsCount: profile._count.externalDocuments,
       totalAmount,
     }
   })

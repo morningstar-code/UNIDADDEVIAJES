@@ -5,7 +5,10 @@ import { upsertProfileByCedulaOrEmail } from '@/lib/public/upsert-profile'
 import {
   CaseSource,
   CaseStatus,
+  NotificationType,
   TaskStatus,
+  TravelAuthorizationType,
+  TravelAuthorizationValidationStatus,
   TravelMatrixStatus,
   WorkflowStep,
 } from '@prisma/client'
@@ -18,6 +21,19 @@ function splitName(fullName?: string | null) {
     firstName: parts.slice(0, 1).join(' '),
     lastName: parts.slice(1).join(' ') || undefined,
   }
+}
+
+function mapreDeadlineFor(travelDate?: Date | null) {
+  if (!travelDate) return undefined
+  const deadline = new Date(travelDate)
+  deadline.setDate(deadline.getDate() - 15)
+  return deadline
+}
+
+function isOutOfMapreDeadline(travelDate?: Date | null) {
+  const deadline = mapreDeadlineFor(travelDate)
+  if (!deadline) return false
+  return deadline < new Date()
 }
 
 export async function POST(
@@ -72,8 +88,8 @@ export async function POST(
         profileId,
         createdByUserId: user.userId,
         source: CaseSource.MATRIZ,
-        status: CaseStatus.PAUTA_RI_DADA,
-        currentWorkflowStep: WorkflowStep.DESIGNATION,
+        status: CaseStatus.PENDIENTE_VALIDACION_AMPARO,
+        currentWorkflowStep: WorkflowStep.AUTHORIZATION_VALIDATION,
         matrixEntryId: entry.id,
         destinoPais: entry.country,
         destinoCiudad: entry.city,
@@ -87,12 +103,13 @@ export async function POST(
     })
 
     const viajesRole = await prisma.role.findUnique({ where: { name: 'VIAJES_ANALISTA' } })
-    if (viajesRole) {
+    const riRole = await prisma.role.findUnique({ where: { name: 'RI_DIRECTORA' } })
+    if (riRole) {
       await prisma.task.create({
         data: {
           caseId: caseRecord.id,
-          step: WorkflowStep.DESIGNATION,
-          assignedRoleId: viajesRole.id,
+          step: WorkflowStep.AUTHORIZATION_VALIDATION,
+          assignedRoleId: riRole.id,
           status: TaskStatus.PENDING,
         },
       })
@@ -100,11 +117,43 @@ export async function POST(
 
     await ensureDefaultRequirements(prisma, caseRecord.id)
 
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: user.userId,
+        caseId: caseRecord.id,
+        profileId,
+        action: 'CHECKLIST_DOCUMENTAL_CREADO',
+        details: { source: 'MATRIZ', matrixEntryId: entry.id },
+      },
+    })
+
     await prisma.travelMatrixEntry.update({
       where: { id: entry.id },
       data: {
         status: TravelMatrixStatus.CONVERTIDO_A_CASO,
         convertedCaseId: caseRecord.id,
+        autorizacionRecibida: true,
+      },
+    })
+
+    const travelDate = entry.estimatedDepartureDate || entry.eventStartDate
+    const mapreDeadline = mapreDeadlineFor(travelDate)
+    const outOfDeadline = isOutOfMapreDeadline(travelDate)
+    await prisma.travelAuthorization.create({
+      data: {
+        caseId: caseRecord.id,
+        type: TravelAuthorizationType.MATRIZ_PROGRAMADA_CONFIRMADA,
+        authorizedBy: entry.pautaGivenByUserId ? 'Relaciones Internacionales' : 'Matriz de viajes',
+        registeredByUserId: user.userId,
+        authorizedAt: entry.pautaGivenAt || new Date(),
+        justification:
+          entry.observations ||
+          'Viaje programado en matriz y convertido a expediente para validacion de Amparo / RI.',
+        validationStatus: TravelAuthorizationValidationStatus.PENDIENTE_VALIDACION_AMPARO,
+        isRecurringTravel: entry.viajeRecurrente,
+        isUnexpectedTravel: entry.viajeImprevisto,
+        isOutOfMapreDeadline: outOfDeadline,
+        mapreDeadline,
       },
     })
 
@@ -114,9 +163,46 @@ export async function POST(
         caseId: caseRecord.id,
         profileId,
         action: 'MATRIX_ENTRY_CONVERTED_TO_CASE',
-        details: { matrixEntryId: entry.id },
+        details: { matrixEntryId: entry.id, requiresAmparoValidation: true },
       },
     })
+
+    await prisma.notification.createMany({
+      data: [
+        {
+          caseId: caseRecord.id,
+          type: NotificationType.MATRIX_CONVERTED_TO_CASE,
+          title: 'Viaje convertido en expediente',
+          message: `La matriz "${entry.eventName}" fue convertida en expediente.`,
+        },
+        {
+          caseId: caseRecord.id,
+          type: NotificationType.PENDING_AMPARO_VALIDATION,
+          title: 'Pendiente validacion Amparo',
+          message: 'El expediente convertido desde matriz requiere validacion antes de designacion.',
+        },
+      ],
+    })
+
+    if (outOfDeadline) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: user.userId,
+          caseId: caseRecord.id,
+          profileId,
+          action: 'OUT_OF_MAPRE_DEADLINE',
+          details: { matrixEntryId: entry.id, travelDate, mapreDeadline },
+        },
+      })
+      await prisma.notification.create({
+        data: {
+          caseId: caseRecord.id,
+          type: NotificationType.OUT_OF_MAPRE_DEADLINE,
+          title: 'Viaje fuera de plazo MAPRE',
+          message: 'El viaje esta a menos de 15 dias del plazo requerido para MAPRE.',
+        },
+      })
+    }
 
     return NextResponse.json({ case: caseRecord })
   } catch (error) {

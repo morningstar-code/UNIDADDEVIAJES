@@ -89,7 +89,7 @@ export default function LoginPage() {
       >
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <Image
-            src="/indotel-logo.jpg"
+            src="/indotel-logo.svg"
             alt="INDOTEL Logo"
             width={80}
             height={80}

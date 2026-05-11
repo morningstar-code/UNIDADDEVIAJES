@@ -47,6 +47,10 @@ async function getAccessToken(): Promise<string> {
   return result.accessToken
 }
 
+export async function getGraphAccessToken(): Promise<string> {
+  return getAccessToken()
+}
+
 class CustomAuthenticationProvider implements AuthenticationProvider {
   async getAccessToken(): Promise<string> {
     return getAccessToken()

@@ -8,7 +8,12 @@ import {
   buildMinisterLetterContent,
   buildTravelRequestContent,
 } from '@/lib/documents/templates'
-import { generateDocx, generateLiquidationXlsx } from '@/lib/documents/ooxml'
+import { generateDocx } from '@/lib/documents/ooxml'
+import {
+  buildInformativeLiquidationFilename,
+  generateInformativeLiquidationWorkbook,
+  LIQUIDATION_XLSX_CONTENT_TYPE,
+} from '@/lib/documents/liquidation'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
 import {
   CaseStatus,
@@ -118,11 +123,15 @@ export async function POST(
       return NextResponse.json(generated)
     }
 
+    const liquidationWorkbook =
+      type === GeneratedDocumentType.FORMULARIO_LIQUIDACION || type === GeneratedDocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO || format === 'xlsx'
+        ? await generateInformativeLiquidationWorkbook(caseRecord)
+        : null
     const output =
-      type === GeneratedDocumentType.FORMULARIO_LIQUIDACION || format === 'xlsx'
+      liquidationWorkbook
         ? {
-            buffer: generateLiquidationXlsx(caseRecord),
-            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            buffer: liquidationWorkbook.buffer,
+            contentType: LIQUIDATION_XLSX_CONTENT_TYPE,
             extension: 'xlsx',
           }
         : format === 'docx' || type === GeneratedDocumentType.CORREO_DESIGNACION
@@ -137,7 +146,10 @@ export async function POST(
               extension: 'pdf',
             }
     const docType = mapGeneratedToDocumentType(type)
-    const fileName = `${type.toLowerCase()}-${params.id.substring(0, 8)}.${output.extension}`
+    const fileName =
+      liquidationWorkbook
+        ? buildInformativeLiquidationFilename(caseRecord)
+        : `${type.toLowerCase()}-${params.id.substring(0, 8)}.${output.extension}`
     const uploadResult = await uploadAttachmentToBlob({
       profileId: caseRecord.profileId,
       caseId: params.id,
@@ -209,7 +221,13 @@ export async function POST(
             : type === GeneratedDocumentType.FORMULARIO_LIQUIDACION
               ? 'FORMULARIO_LIQUIDACION_GENERADO'
               : 'GENERATED_DOCUMENT_CREATED',
-        details: { type, documentId: document.id, format: output.extension },
+        details: {
+          type,
+          documentId: document.id,
+          format: output.extension,
+          usedTemplate: !!liquidationWorkbook,
+          mappedCells: liquidationWorkbook?.mappedCells,
+        },
       },
     })
 

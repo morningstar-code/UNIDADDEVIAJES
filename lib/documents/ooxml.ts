@@ -20,7 +20,7 @@ function dosDateTime(date = new Date()) {
   return { dosTime, dosDate }
 }
 
-function createZip(entries: Array<{ name: string; data: string | Buffer }>) {
+export function createZip(entries: Array<{ name: string; data: string | Buffer }>) {
   const localParts: Buffer[] = []
   const centralParts: Buffer[] = []
   let offset = 0

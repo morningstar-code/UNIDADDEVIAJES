@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 import { CaseSource, CaseStatus } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { user, response } = await getAuthorizedUser(request, 'cases:read')
+  if (!user) return response!
 
   try {
     const { searchParams } = new URL(request.url)
@@ -60,7 +58,7 @@ export async function GET(request: NextRequest) {
           },
         },
         readReceipts: {
-          where: { userId: authUser.userId },
+          where: { userId: user.userId },
           select: { readAt: true },
         },
       },

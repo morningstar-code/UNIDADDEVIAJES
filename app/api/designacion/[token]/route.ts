@@ -66,6 +66,13 @@ export async function POST(
     return NextResponse.json({ error: 'Accion invalida' }, { status: 400 })
   }
 
+  if (designation.status !== DesignationStatus.SENT) {
+    return NextResponse.json(
+      { error: 'La designacion debe estar enviada antes de registrar una respuesta.' },
+      { status: 403 }
+    )
+  }
+
   if (action === 'REJECT') {
     const updated = await prisma.designation.update({
       where: { id: designation.id },
@@ -101,6 +108,34 @@ export async function POST(
     })
 
     return NextResponse.json(updated)
+  }
+
+  if (data.acceptedTerms !== true) {
+    return NextResponse.json(
+      { error: 'Debe aceptar los terminos y condiciones del viaje institucional.' },
+      { status: 400 }
+    )
+  }
+
+  if (data.confirmedAvailability !== true) {
+    return NextResponse.json(
+      { error: 'Debe confirmar su disponibilidad para participar en el viaje.' },
+      { status: 400 }
+    )
+  }
+
+  if ('confirmedDataAccuracy' in data && data.confirmedDataAccuracy !== true) {
+    return NextResponse.json(
+      { error: 'Debe confirmar que los datos de la designacion son correctos.' },
+      { status: 400 }
+    )
+  }
+
+  if ('confirmedAuthenticDocuments' in data && data.confirmedAuthenticDocuments !== true) {
+    return NextResponse.json(
+      { error: 'Debe confirmar la autenticidad de los documentos que cargara.' },
+      { status: 400 }
+    )
   }
 
   const updated = await prisma.designation.update({

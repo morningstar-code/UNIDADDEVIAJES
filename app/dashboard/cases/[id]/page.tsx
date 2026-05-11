@@ -5,11 +5,32 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 
 // ─── Translation dictionaries ───────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
+  PENDIENTE_CLASIFICACION: 'Pendiente clasificación',
+  AUTORIZACION_RECIBIDA: 'Autorización recibida',
+  PENDIENTE_VALIDACION_AMPARO: 'Pendiente validación Amparo',
+  VALIDADO_POR_AMPARO: 'Validado por Amparo',
+  DEVUELTO_POR_AMPARO: 'Devuelto por Amparo',
+  RECHAZADO_POR_AMPARO: 'Rechazado por Amparo',
+  INSTRUCCION_RECIBIDA: 'Instrucción recibida',
+  SIN_MEMORANDO_JUSTIFICADO: 'Sin memorando justificado',
+  VIAJE_IMPREVISTO: 'Viaje imprevisto',
+  FUERA_PLAZO_MAPRE: 'Fuera de plazo MAPRE',
+  PENDIENTE_DESIGNACION: 'Pendiente designación',
+  MEMORANDO_PRESIDENCIA: 'Memorando Presidencia',
+  CORREO_INSTRUCCION: 'Correo de instrucción',
+  INSTRUCCION_DIRECTA_RI: 'Instrucción directa RI',
+  MATRIZ_PROGRAMADA_CONFIRMADA: 'Matriz programada confirmada',
+  OTRO: 'Otro',
+  MEMORANDO_FORMAL: 'Memorando formal',
+  CORREO_AMPARO: 'Correo de Amparo',
+  CORREO_PRESIDENCIA: 'Correo de Presidencia',
+  CORREO_DIRECTOR_SECRETARIA: 'Correo director/secretaria',
+  INSTRUCCION_VERBAL_REGISTRADA: 'Instrucción verbal registrada',
+  WHATSAPP: 'WhatsApp',
   MATRIZ_REGISTRADA: 'Matriz registrada',
   PENDIENTE_PAUTA_RI: 'Pendiente pauta RI',
   PAUTA_RI_DADA: 'Pauta RI dada',
@@ -25,12 +46,14 @@ const STATUS_LABELS: Record<string, string> = {
   FORMULARIO_EN_ELABORACION: 'Formulario en elaboración',
   CARTA_EN_ELABORACION: 'Carta en elaboración',
   EXPEDIENTE_ARMADO: 'Expediente armado',
+  ENVIADO_MAPRE: 'Enviado a MAPRE',
   DESPACHO_REVIEW: 'Revisión despacho',
   CONSEJO_DIRECTIVO_FIRMA: 'Consejo Directivo – firma',
   EXPEDIENTE_FIRMADO_RECIBIDO: 'Expediente firmado recibido',
   COORDINACION_ADMINISTRATIVA: 'Coordinación administrativa',
   VIAJE_REALIZADO: 'Viaje realizado',
   PENDIENTE_INFORME_Y_LIQUIDACION: 'Pendiente informe y liquidación',
+  PENDIENTE_LIQUIDACION: 'Pendiente liquidación',
   LIQUIDACION_EN_REVISION: 'Liquidación en revisión',
   LIQUIDACION_REQUIERE_CORRECCION: 'Liquidación requiere corrección',
   LIQUIDACION_APROBADA: 'Liquidación aprobada',
@@ -50,6 +73,9 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
+  MEMORANDO_AUTORIZACION_PRESIDENCIA: 'Memorando / autorización de Presidencia',
+  EVIDENCIA_INSTRUCCION_DIRECTA: 'Evidencia de instrucción directa',
+  CORREO_INSTRUCCION: 'Correo de instrucción',
   CORREO_DESIGNACION: 'Correo de designación',
   ACEPTACION_COLABORADOR: 'Aceptación del colaborador',
   CEDULA: 'Cédula de identidad',
@@ -62,6 +88,8 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   TICKET: 'Tiquete / boleto',
   MEMO_APROBACION: 'Memo de aprobación',
   FORMULARIO_SOLICITUD_VIAJE: 'Formulario de solicitud de viaje al exterior',
+  FORMULARIO_SOLICITUD_VIAJE_EXTERIOR: 'Formulario de solicitud de viaje al exterior',
+  CARTA_MAPRE: 'Carta MAPRE',
   CARTA_MINISTRO_ADMINISTRATIVO: 'Carta al Ministro Administrativo de la Presidencia',
   EXPEDIENTE_FIRMADO: 'Expediente firmado',
   JUSTIFICACION_FIRMA_DIGITAL: 'Justificación firma digital',
@@ -121,6 +149,17 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 const AUDIT_ACTION_LABELS: Record<string, string> = {
+  AUTHORIZATION_UPLOADED: 'Autorización formal cargada',
+  DIRECT_INSTRUCTION_CREATED: 'Instrucción directa registrada',
+  AMPARO_VALIDATED: 'Amparo validó la autorización',
+  AMPARO_RETURNED: 'Amparo devolvió la autorización',
+  AMPARO_REJECTED: 'Amparo rechazó la autorización',
+  URGENT_TRAVEL_CREATED: 'Viaje imprevisto registrado',
+  OUT_OF_MAPRE_DEADLINE: 'Viaje fuera de plazo MAPRE',
+  MATRIX_ENTRY_CONVERTED: 'Matriz convertida en expediente',
+  DESIGNATION_READY: 'Designación lista para enviar',
+  MAPRE_LETTER_GENERATED: 'Carta MAPRE generada',
+  OFFICIAL_TEMPLATE_USED: 'Plantilla oficial utilizada',
   CORREO_DESIGNACION_GENERADO: 'Correo de designación generado',
   CORREO_DESIGNACION_EDITADO: 'Correo de designación editado',
   CORREO_DESIGNACION_ENVIADO: 'Correo de designación enviado al colaborador',
@@ -161,8 +200,9 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
 
 const STEPPER_STEPS = [
   { key: 'MATRIZ_REGISTRADA', label: 'Matriz registrada' },
-  { key: 'PENDIENTE_PAUTA_RI', label: 'Pendiente pauta RI' },
-  { key: 'PAUTA_RI_DADA', label: 'Pauta RI dada' },
+  { key: 'AUTORIZACION_RECIBIDA', label: 'Autorización recibida' },
+  { key: 'PENDIENTE_VALIDACION_AMPARO', label: 'Validación Amparo' },
+  { key: 'PENDIENTE_DESIGNACION', label: 'Pendiente designación' },
   { key: 'DESIGNACION_GENERADA', label: 'Designación generada' },
   { key: 'DESIGNACION_ENVIADA', label: 'Designación enviada' },
   { key: 'PENDIENTE_ACEPTACION_COLABORADOR', label: 'Pendiente aceptación' },
@@ -183,6 +223,16 @@ const STEPPER_STEPS = [
 function getStepperIndex(status: string) {
   // Collapsed statuses to nearest main flow
   const MAP: Record<string, string> = {
+    PENDIENTE_CLASIFICACION: 'AUTORIZACION_RECIBIDA',
+    INSTRUCCION_RECIBIDA: 'AUTORIZACION_RECIBIDA',
+    SIN_MEMORANDO_JUSTIFICADO: 'AUTORIZACION_RECIBIDA',
+    VIAJE_IMPREVISTO: 'AUTORIZACION_RECIBIDA',
+    FUERA_PLAZO_MAPRE: 'AUTORIZACION_RECIBIDA',
+    PENDIENTE_PAUTA_RI: 'AUTORIZACION_RECIBIDA',
+    PAUTA_RI_DADA: 'PENDIENTE_DESIGNACION',
+    VALIDADO_POR_AMPARO: 'PENDIENTE_DESIGNACION',
+    DEVUELTO_POR_AMPARO: 'PENDIENTE_VALIDACION_AMPARO',
+    RECHAZADO_POR_AMPARO: 'PENDIENTE_VALIDACION_AMPARO',
     DESIGNACION_BORRADOR: 'DESIGNACION_GENERADA',
     COLABORADOR_ACEPTO: 'PENDIENTE_DOCUMENTOS',
     COLABORADOR_RECHAZO: 'PENDIENTE_ACEPTACION_COLABORADOR',
@@ -211,6 +261,30 @@ interface ContextAction {
 
 function getContextActions(status: string, _role: string): { title: string; description: string; actions: ContextAction[]; blockers?: string[] } | null {
   switch (status) {
+    case 'PENDIENTE_VALIDACION_AMPARO':
+      return {
+        title: 'Validar autorización Amparo',
+        description: 'Amparo / RI debe validar, devolver o rechazar la autorización antes de preparar la designación.',
+        actions: [
+          { id: 'VALIDATE_AUTHORIZATION', label: 'Validar y dar curso', kind: 'primary' },
+          { id: 'RETURN_AUTHORIZATION', label: 'Devolver con observaciones', kind: 'warning' },
+          { id: 'REJECT_AUTHORIZATION', label: 'Rechazar', kind: 'danger' },
+        ],
+      }
+    case 'DEVUELTO_POR_AMPARO':
+      return {
+        title: 'Autorización devuelta por Amparo',
+        description: 'El responsable debe corregir o completar la evidencia solicitada antes de reenviar.',
+        actions: [],
+      }
+    case 'RECHAZADO_POR_AMPARO':
+      return {
+        title: 'Autorización rechazada por Amparo',
+        description: 'El expediente no debe avanzar a designación salvo que se cree una nueva autorización.',
+        actions: [],
+      }
+    case 'PENDIENTE_DESIGNACION':
+    case 'VALIDADO_POR_AMPARO':
     case 'PAUTA_RI_DADA':
     case 'DESIGNACION_BORRADOR':
       return {
@@ -374,9 +448,9 @@ function fmtDateTime(value?: string | null) {
 
 function statusColor(status: string): { bg: string; color: string; border: string } {
   const closed = ['CLOSED', 'APPROVED', 'LIQUIDACION_APROBADA'].includes(status)
-  const danger = ['CANCELLED', 'REJECTED', 'COLABORADOR_RECHAZO', 'LIQUIDACION_REQUIERE_CORRECCION'].includes(status)
-  const warning = ['PENDIENTE_PAUTA_RI', 'PENDIENTE_DOCUMENTOS', 'PENDIENTE_ACEPTACION_COLABORADOR', 'PENDIENTE_INFORME_Y_LIQUIDACION', 'DOCUMENTOS_EN_REVISION', 'LIQUIDACION_EN_REVISION'].includes(status)
-  const info = ['DESPACHO_REVIEW', 'CONSEJO_DIRECTIVO_FIRMA', 'FIRMA_DIGITAL_PENDIENTE_JUSTIFICACION', 'EXPEDIENTE_FIRMADO_RECIBIDO', 'COORDINACION_ADMINISTRATIVA', 'VIAJE_REALIZADO', 'DESIGNACION_ENVIADA'].includes(status)
+  const danger = ['CANCELLED', 'REJECTED', 'COLABORADOR_RECHAZO', 'LIQUIDACION_REQUIERE_CORRECCION', 'RECHAZADO_POR_AMPARO'].includes(status)
+  const warning = ['PENDIENTE_PAUTA_RI', 'PENDIENTE_VALIDACION_AMPARO', 'DEVUELTO_POR_AMPARO', 'FUERA_PLAZO_MAPRE', 'PENDIENTE_DOCUMENTOS', 'PENDIENTE_ACEPTACION_COLABORADOR', 'PENDIENTE_INFORME_Y_LIQUIDACION', 'DOCUMENTOS_EN_REVISION', 'LIQUIDACION_EN_REVISION'].includes(status)
+  const info = ['AUTORIZACION_RECIBIDA', 'INSTRUCCION_RECIBIDA', 'PENDIENTE_DESIGNACION', 'VALIDADO_POR_AMPARO', 'DESPACHO_REVIEW', 'CONSEJO_DIRECTIVO_FIRMA', 'FIRMA_DIGITAL_PENDIENTE_JUSTIFICACION', 'EXPEDIENTE_FIRMADO_RECIBIDO', 'COORDINACION_ADMINISTRATIVA', 'VIAJE_REALIZADO', 'DESIGNACION_ENVIADA'].includes(status)
   if (closed) return { bg: '#d1e7dd', color: '#0a3622', border: '#a3cfbb' }
   if (danger) return { bg: '#f8d7da', color: '#58151c', border: '#f1aeb5' }
   if (warning) return { bg: '#fff3cd', color: '#664d03', border: '#ffe69c' }
@@ -409,8 +483,44 @@ interface CaseDetail {
   montoEstimado: string | null
   moneda: string | null
   observaciones?: string | null
-  profile: { id: string; primaryEmail: string; fullName: string | null; cargo?: string | null; departamento?: string | null; cedula?: string | null }
-  documents: Array<{ id: string; docType: string; originalFilename: string; blobUrl: string; mimeType?: string; createdAt: string }>
+  profile: {
+    id: string
+    primaryEmail: string | null
+    fullName: string | null
+    cargo?: string | null
+    departamento?: string | null
+    cedula?: string | null
+    passportNumber?: string | null
+    passportExpirationDate?: string | null
+    visaCountry?: string | null
+    visaExpirationDate?: string | null
+    documents?: Array<{ id: string; docType: string; originalFilename: string; blobUrl: string; source: string; expirationDate: string | null; createdAt: string }>
+    externalDocuments?: Array<{ id: string; documentType: string; originalFileName: string; sharePointWebUrl: string | null; status: string; expirationDate: string | null; syncedAt: string }>
+  }
+  travelAuthorization: {
+    id: string
+    type: string
+    evidenceChannel: string | null
+    authorizationDocumentId: string | null
+    authorizationDocumentUrl: string | null
+    authorizationDocumentName: string | null
+    sourceEmailMessageId: string | null
+    authorizedBy: string
+    registeredByUserId: string | null
+    authorizedAt: string | null
+    registeredAt: string
+    justification: string
+    requiresAmparoValidation: boolean
+    validationStatus: string
+    validationComment: string | null
+    validatedByUserId: string | null
+    validatedAt: string | null
+    isRecurringTravel: boolean
+    isUnexpectedTravel: boolean
+    isOutOfMapreDeadline: boolean
+    mapreDeadline: string | null
+  } | null
+  documents: Array<{ id: string; docType: string; originalFilename: string; blobUrl: string; mimeType?: string; source?: string; expirationDate?: string | null; sharePointWebUrl?: string | null; createdAt: string }>
   designations: Array<{ id: string; collaboratorEmail: string; subject: string; body: string; status: string; sentAt: string | null }>
   documentRequirements: Array<{ id: string; docType: string; label: string; required: boolean; status: string; observations: string | null; uploadedByName: string | null; uploadedAt: string | null; document: { id: string; originalFilename: string; blobUrl: string; mimeType: string } | null }>
   generatedDocuments: Array<{ id: string; type: string; title: string; status: string; generatedAt: string | null; document: { id: string; originalFilename: string; blobUrl: string; mimeType: string } | null }>
@@ -419,6 +529,15 @@ interface CaseDetail {
 }
 
 type Tab = 'resumen' | 'documentos' | 'expediente' | 'workflow' | 'historial'
+
+interface ProfileOption {
+  id: string
+  fullName: string | null
+  primaryEmail: string | null
+  cedula: string | null
+  cargo?: string | null
+  departamento?: string | null
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -440,6 +559,9 @@ export default function CaseDetailPage() {
   const [signedFile, setSignedFile] = useState<File | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<{ id: string; filename: string; url: string; type: string } | null>(null)
   const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' } | null>(null)
+  const [travelerQuery, setTravelerQuery] = useState('')
+  const [travelerResults, setTravelerResults] = useState<ProfileOption[]>([])
+  const [changingTraveler, setChangingTraveler] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) { router.push('/login'); return }
@@ -539,8 +661,28 @@ export default function CaseDetailPage() {
     else showToast((await res.json()).error || 'No se pudo subir el documento', 'error')
   }
 
+  const generateLiquidationFromTemplate = async () => {
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/cases/${params.id}/generated-documents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'FORMULARIO_LIQUIDACION', action: 'GENERATE', format: 'xlsx' }),
+    })
+    if (res.ok) {
+      setGeneratedDraft(null)
+      await fetchCase()
+      showToast('Formulario institucional generado desde la plantilla oficial')
+    } else {
+      showToast((await res.json()).error || 'No se pudo generar el formulario institucional', 'error')
+    }
+  }
+
   const startGeneratedDocument = (type: 'FORMULARIO_SOLICITUD_VIAJE' | 'CARTA_MINISTRO_ADMINISTRATIVO' | 'FORMULARIO_LIQUIDACION') => {
-    const title = type === 'FORMULARIO_SOLICITUD_VIAJE' ? 'Formulario de solicitud de viaje al exterior' : type === 'FORMULARIO_LIQUIDACION' ? 'Formulario de liquidación de fondos / viáticos' : 'Carta al Ministro Administrativo de la Presidencia'
+    if (type === 'FORMULARIO_LIQUIDACION') {
+      generateLiquidationFromTemplate()
+      return
+    }
+    const title = type === 'FORMULARIO_SOLICITUD_VIAJE' ? 'Formulario de solicitud de viaje al exterior' : 'Carta al Ministro Administrativo de la Presidencia'
     const content = [
       title, '',
       `Nombre: ${caseDetail?.profile.fullName || caseDetail?.profile.primaryEmail || ''}`,
@@ -548,7 +690,7 @@ export default function CaseDetailPage() {
       `Fechas: ${fmtDate(caseDetail?.fechaSalida)} - ${fmtDate(caseDetail?.fechaRetorno)}`,
       `Evento: ${caseDetail?.evento || ''}`,
       `Objetivo: ${caseDetail?.motivo || ''}`,
-      type === 'FORMULARIO_LIQUIDACION' ? '\nTabla de gastos y firmas se generan en el Excel final. Nota: anexar facturas, informe y volante de depósito de remanentes cuando corresponda. No incluir bebidas alcohólicas.' : type === 'CARTA_MINISTRO_ADMINISTRATIVO' ? '\nAtentamente,\n\nGuido Gómez Mazara\nPresidente del Consejo Directivo\nINDOTEL' : '',
+      type === 'CARTA_MINISTRO_ADMINISTRATIVO' ? '\nAtentamente,\n\nGuido Gómez Mazara\nPresidente del Consejo Directivo\nINDOTEL' : '',
     ].join('\n')
     setGeneratedDraft({ type, content })
   }
@@ -574,6 +716,83 @@ export default function CaseDetailPage() {
     })
     if (res.ok) { await fetchCase(); showToast('Acción ejecutada correctamente') }
     else showToast((await res.json()).error || 'No se pudo ejecutar la acción', 'error')
+  }
+
+  const runAuthorizationAction = async (action: 'VALIDATE' | 'RETURN' | 'REJECT') => {
+    const commentRequired = action !== 'VALIDATE'
+    const commentText = commentRequired ? (workflowComment || prompt('Observaciones obligatorias') || '') : workflowComment
+    if (commentRequired && !commentText.trim()) {
+      showToast('Debe indicar observaciones', 'error')
+      return
+    }
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/cases/${params.id}/authorization`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, comment: commentText }),
+    })
+    if (res.ok) {
+      setWorkflowComment('')
+      await fetchCase()
+      showToast('Validación de autorización actualizada')
+    } else {
+      showToast((await res.json()).error || 'No se pudo procesar la autorización', 'error')
+    }
+  }
+
+  const attachProfileDocuments = async () => {
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/cases/${params.id}/profile-documents`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ docTypes: ['CEDULA', 'PASAPORTE', 'VISA'] }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      await fetchCase()
+      const attached = data.attached?.length || 0
+      const missing = data.missing?.length || 0
+      const expired = data.expired?.length || 0
+      showToast(`Documentos adjuntados: ${attached}. Faltantes: ${missing}. Vencidos: ${expired}.`, missing || expired ? 'error' : 'success')
+    } else {
+      showToast(data.error || 'No se pudieron adjuntar documentos del perfil', 'error')
+    }
+  }
+
+  const searchTravelers = async (query: string) => {
+    setTravelerQuery(query)
+    if (query.trim().length < 2) {
+      setTravelerResults([])
+      return
+    }
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/profiles/search?q=${encodeURIComponent(query)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setTravelerResults(data.profiles || [])
+    }
+  }
+
+  const changeTraveler = async (profileId: string) => {
+    const comment = prompt('Motivo del cambio de colaborador designado') || ''
+    setChangingTraveler(true)
+    const token = localStorage.getItem('token')
+    const res = await fetch(`/api/cases/${params.id}/traveler`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId, comment }),
+    })
+    setChangingTraveler(false)
+    if (res.ok) {
+      setTravelerQuery('')
+      setTravelerResults([])
+      await fetchCase()
+      showToast('Colaborador designado actualizado. Use los documentos del nuevo perfil para anexar sus soportes.')
+    } else {
+      showToast((await res.json()).error || 'No se pudo cambiar el colaborador', 'error')
+    }
   }
 
   const signWorkflow = async () => {
@@ -611,13 +830,22 @@ export default function CaseDetailPage() {
         break
       case 'GENERATE_LIQUIDACION':
         setActiveTab('expediente')
-        startGeneratedDocument('FORMULARIO_LIQUIDACION')
+        generateLiquidationFromTemplate()
         break
       case 'GO_TO_DOCS':
         setActiveTab('documentos')
         break
       case 'SIGN_PRESENCIAL':
         setActiveTab('expediente')
+        break
+      case 'VALIDATE_AUTHORIZATION':
+        runAuthorizationAction('VALIDATE')
+        break
+      case 'RETURN_AUTHORIZATION':
+        runAuthorizationAction('RETURN')
+        break
+      case 'REJECT_AUTHORIZATION':
+        runAuthorizationAction('REJECT')
         break
       case 'SEND_DESPACHO':
         runWorkflowAction('SEND_DESPACHO')
@@ -707,7 +935,7 @@ export default function CaseDetailPage() {
   const field: React.CSSProperties = { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f0f2f5', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
       {/* ── Toast ──────────────────────────────────────────────────────────── */}
       {toast && (
@@ -716,19 +944,17 @@ export default function CaseDetailPage() {
         </div>
       )}
 
-      {/* ── Top nav ────────────────────────────────────────────────────────── */}
-      <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #e0e0e0', padding: '0.75rem 2rem', display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <Image src="/indotel-logo.jpg" alt="INDOTEL" width={44} height={44} style={{ objectFit: 'contain' }} />
-        <div style={{ flex: 1 }}>
-          <Link href="/dashboard/bandeja" style={{ color: '#0d6efd', textDecoration: 'none', fontSize: '0.875rem' }}>← Bandeja de entrada</Link>
-          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#212529', marginTop: '0.1rem' }}>
-            Expediente {caseCode}
-          </div>
+      {/* ── Breadcrumb + status bar ─────────────────────────────────────────── */}
+      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0.6rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <Link href="/dashboard/bandeja" style={{ color: '#1a56db', textDecoration: 'none', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>← Bandeja</Link>
+        <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>/</span>
+        <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Expediente {caseCode}
         </div>
-        <span style={{ padding: '0.35rem 0.85rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, backgroundColor: sc.bg, color: sc.color, border: `1px solid ${sc.border}` }}>
+        <span style={{ padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, whiteSpace: 'nowrap' }}>
           {STATUS_LABELS[caseDetail.status] || caseDetail.status}
         </span>
-      </header>
+      </div>
 
       {/* ── Case summary header ─────────────────────────────────────────────── */}
       <div style={{ backgroundColor: '#1a3a6b', color: '#fff', padding: '1.5rem 2rem' }}>
@@ -850,6 +1076,108 @@ export default function CaseDetailPage() {
               </div>
             )}
 
+            <div style={{ ...card, borderLeft: `5px solid ${caseDetail.travelAuthorization?.validationStatus === 'VALIDADO_POR_AMPARO' ? '#198754' : caseDetail.travelAuthorization?.validationStatus === 'RECHAZADO_POR_AMPARO' ? '#dc3545' : '#fd7e14'}` }}>
+              <h3 style={{ margin: '0 0 1rem', color: '#1a3a6b', fontSize: '1rem', borderBottom: '1px solid #e9ecef', paddingBottom: '0.5rem' }}>Autorización del viaje</h3>
+              {caseDetail.travelAuthorization ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem', fontSize: '0.9rem' }}>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Tipo:</span> <strong>{STATUS_LABELS[caseDetail.travelAuthorization.type] || caseDetail.travelAuthorization.type}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Canal:</span> <strong>{STATUS_LABELS[caseDetail.travelAuthorization.evidenceChannel || ''] || caseDetail.travelAuthorization.evidenceChannel || '—'}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Autorizó:</span> <strong>{caseDetail.travelAuthorization.authorizedBy}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Estado Amparo:</span> <span style={{ padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 700, fontSize: '0.8rem', backgroundColor: statusColor(caseDetail.travelAuthorization.validationStatus).bg, color: statusColor(caseDetail.travelAuthorization.validationStatus).color }}>{STATUS_LABELS[caseDetail.travelAuthorization.validationStatus] || caseDetail.travelAuthorization.validationStatus}</span></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Autorizado:</span> <strong>{fmtDateTime(caseDetail.travelAuthorization.authorizedAt)}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Registrado:</span> <strong>{fmtDateTime(caseDetail.travelAuthorization.registeredAt)}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Plazo MAPRE:</span> <strong>{fmtDate(caseDetail.travelAuthorization.mapreDeadline)}</strong></div>
+                  <div style={field}><span style={{ color: '#868e96', minWidth: 120 }}>Alertas:</span> <strong>{caseDetail.travelAuthorization.isUnexpectedTravel ? 'Viaje imprevisto' : '—'}{caseDetail.travelAuthorization.isOutOfMapreDeadline ? ' / Fuera de plazo MAPRE' : ''}</strong></div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ color: '#868e96', marginBottom: '0.25rem' }}>Justificación:</div>
+                    <div style={{ backgroundColor: '#f8f9fa', borderRadius: '6px', padding: '0.75rem' }}>{caseDetail.travelAuthorization.justification}</div>
+                  </div>
+                  {caseDetail.travelAuthorization.validationComment && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <div style={{ color: '#868e96', marginBottom: '0.25rem' }}>Observación Amparo:</div>
+                      <div style={{ backgroundColor: '#fff3cd', borderRadius: '6px', padding: '0.75rem', color: '#664d03' }}>{caseDetail.travelAuthorization.validationComment}</div>
+                    </div>
+                  )}
+                  {caseDetail.travelAuthorization.authorizationDocumentUrl && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <a href={caseDetail.travelAuthorization.authorizationDocumentUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0d6efd', fontWeight: 700 }}>
+                        Ver soporte: {caseDetail.travelAuthorization.authorizationDocumentName || 'documento de autorización'}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: '#664d03', backgroundColor: '#fff3cd', padding: '0.85rem', borderRadius: '6px' }}>
+                  Este expediente no tiene autorización previa registrada. Si es un expediente nuevo, cree la autorización antes de enviar designación. Los casos legados se mantienen compatibles.
+                </div>
+              )}
+            </div>
+
+            <div style={{ ...card, borderLeft: '5px solid #198754' }}>
+              <h3 style={{ margin: '0 0 1rem', color: '#1a3a6b', fontSize: '1rem', borderBottom: '1px solid #e9ecef', paddingBottom: '0.5rem' }}>Colaborador y documentos base</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', alignItems: 'start' }}>
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>{caseDetail.profile.fullName || caseDetail.profile.primaryEmail || 'Colaborador sin nombre'}</div>
+                  <div style={{ color: '#666', fontSize: '0.9rem' }}>Cédula: {caseDetail.profile.cedula || 'No registrada'}</div>
+                  <div style={{ color: '#666', fontSize: '0.9rem' }}>Pasaporte: {caseDetail.profile.passportNumber || 'No registrado'}</div>
+                  {caseDetail.profile.passportExpirationDate && (
+                    <div style={{ color: new Date(caseDetail.profile.passportExpirationDate) < new Date() ? '#dc3545' : '#666', fontSize: '0.9rem' }}>
+                      Vence pasaporte: {fmtDate(caseDetail.profile.passportExpirationDate)}
+                    </div>
+                  )}
+                  {caseDetail.profile.visaCountry && (
+                    <div style={{ color: caseDetail.profile.visaExpirationDate && new Date(caseDetail.profile.visaExpirationDate) < new Date() ? '#dc3545' : '#666', fontSize: '0.9rem' }}>
+                      Visa: {caseDetail.profile.visaCountry}{caseDetail.profile.visaExpirationDate ? ` vence ${fmtDate(caseDetail.profile.visaExpirationDate)}` : ''}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Disponibles en perfil</div>
+                  <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                    Blob/manual: {caseDetail.profile.documents?.length || 0} · SharePoint: {caseDetail.profile.externalDocuments?.length || 0}
+                  </div>
+                  <button onClick={attachProfileDocuments} style={{ ...kindStyle('primary'), marginTop: '0.75rem' }}>
+                    Usar documentos de este perfil en el expediente
+                  </button>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Cambiar colaborador designado</div>
+                  <input
+                    value={travelerQuery}
+                    onChange={(e) => searchTravelers(e.target.value)}
+                    placeholder="Buscar por nombre, cédula o email"
+                    style={{ width: '100%', padding: '0.65rem', border: '1px solid #ced4da', borderRadius: '6px' }}
+                  />
+                  {travelerResults.length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {travelerResults.slice(0, 5).map((profile) => (
+                        <button
+                          key={profile.id}
+                          disabled={changingTraveler}
+                          onClick={() => changeTraveler(profile.id)}
+                          style={{ padding: '0.55rem', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: '#fff', textAlign: 'left', cursor: 'pointer' }}
+                        >
+                          {profile.fullName || profile.primaryEmail || 'Perfil'} {profile.cedula ? `· ${profile.cedula}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {(caseDetail.profile.externalDocuments || []).length > 0 && (
+                <div style={{ marginTop: '1rem', borderTop: '1px solid #e9ecef', paddingTop: '0.75rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Documentos SharePoint del perfil</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {caseDetail.profile.externalDocuments!.slice(0, 6).map((doc) => (
+                      <span key={doc.id} style={{ padding: '0.35rem 0.6rem', borderRadius: '999px', backgroundColor: '#e7f1ff', color: '#084298', fontSize: '0.8rem' }}>
+                        {doc.documentType}: {doc.originalFileName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
               {/* Viaje */}
               <div style={card}>
@@ -895,10 +1223,10 @@ export default function CaseDetailPage() {
                   <button style={kindStyle('primary')} onClick={loadDesignationDraft}>Generar / editar correo de designación</button>
                   {informativeLiquidation?.document && (
                     <a href={informativeLiquidation.document.blobUrl} target="_blank" rel="noopener noreferrer" style={{ ...kindStyle('secondary') as React.CSSProperties, textDecoration: 'none', display: 'inline-block' }}>
-                      Descargar formulario de liquidación informativo
+                      Descargar formulario institucional de liquidación
                     </a>
                   )}
-                  {!informativeLiquidation && <span style={{ color: '#868e96', fontSize: '0.85rem' }}>El formulario de liquidación informativo se generará al crear la designación.</span>}
+                  {!informativeLiquidation && <span style={{ color: '#868e96', fontSize: '0.85rem' }}>El formulario institucional se generará desde la plantilla oficial al crear la designación.</span>}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -923,8 +1251,9 @@ export default function CaseDetailPage() {
                 <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', backgroundColor: '#d1e7dd', borderRadius: '6px' }}>
                   <span style={{ fontSize: '1.2rem' }}>📎</span>
                   <div style={{ flex: 1, fontSize: '0.875rem' }}>
-                    <strong>Formulario de liquidación adjuntado como informativo</strong>
+                    <strong>Formulario institucional de liquidación adjuntado como anexo informativo</strong>
                     {caseDetail.designations?.[0]?.sentAt && <span style={{ color: '#0a3622', marginLeft: '0.5rem' }}>· Enviado: {fmtDateTime(caseDetail.designations[0].sentAt)}</span>}
+                    <div style={{ color: '#0a3622', marginTop: '0.25rem' }}>Archivo generado desde la plantilla oficial, conservando formato, celdas combinadas, estilos y fórmulas.</div>
                   </div>
                   <a href={informativeLiquidation.document.blobUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0a3622', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}>Descargar</a>
                 </div>
@@ -1113,20 +1442,10 @@ export default function CaseDetailPage() {
             {/* Liquidation form */}
             <div style={card}>
               <h3 style={{ margin: '0 0 0.75rem', color: '#1a3a6b', fontSize: '0.95rem', fontWeight: 700 }}>Formulario de liquidación – post-viaje</h3>
-              <p style={{ color: '#868e96', fontSize: '0.875rem', marginTop: 0 }}>No forma parte del expediente inicial ante MAPRE. Su uso real corresponde al cierre posterior al viaje.</p>
+              <p style={{ color: '#868e96', fontSize: '0.875rem', marginTop: 0 }}>Se genera directamente desde la plantilla institucional original en Excel. No es una vista simplificada ni un borrador visual.</p>
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                <button style={kindStyle('primary')} onClick={() => startGeneratedDocument('FORMULARIO_LIQUIDACION')}>Generar formulario de liquidación (.xlsx)</button>
+                <button style={kindStyle('primary')} onClick={generateLiquidationFromTemplate}>Generar formulario institucional (.xlsx)</button>
               </div>
-              {generatedDraft?.type === 'FORMULARIO_LIQUIDACION' && (
-                <div>
-                  <textarea value={generatedDraft.content} onChange={(e) => setGeneratedDraft((prev) => prev ? { ...prev, content: e.target.value } : prev)} style={{ width: '100%', minHeight: '180px', padding: '0.75rem', border: '1.5px solid #dee2e6', borderRadius: '6px', fontSize: '0.9rem', resize: 'vertical', marginBottom: '0.75rem' }} />
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button style={kindStyle('secondary')} onClick={() => saveGeneratedDocument('SAVE_DRAFT')}>Guardar borrador</button>
-                    <button style={kindStyle('primary')} onClick={() => saveGeneratedDocument('GENERATE')}>Generar Excel y adjuntar</button>
-                    <button style={kindStyle('secondary')} onClick={() => setGeneratedDraft(null)}>Cancelar</button>
-                  </div>
-                </div>
-              )}
               {caseDetail.generatedDocuments.filter((d) => d.type === 'FORMULARIO_LIQUIDACION' && d.document).map((doc) => (
                 <div key={doc.id} style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', border: '1px solid #e9ecef', borderRadius: '6px' }}>
                   <span style={{ fontWeight: 600 }}>{doc.title}</span>

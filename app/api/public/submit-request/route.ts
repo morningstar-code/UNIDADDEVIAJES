@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { CaseSource, CaseStatus, DocumentType, WorkflowStep, TaskStatus } from '@prisma/client'
 import { upsertProfileByCedulaOrEmail } from '@/lib/public/upsert-profile'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
+import { ensureDefaultRequirements } from '@/lib/cases/requirements'
 import { randomUUID } from 'crypto'
 
 export const runtime = 'nodejs'
@@ -53,6 +54,13 @@ export async function POST(request: NextRequest) {
     if (!firstName || !lastName || !email) {
       return NextResponse.json(
         { error: 'Nombre, apellido y email son requeridos' },
+        { status: 400 }
+      )
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { error: 'Email invalido' },
         { status: 400 }
       )
     }
@@ -150,6 +158,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    await ensureDefaultRequirements(prisma, caseRecord.id)
+
     // Upload documents
     const uploadedDocuments = []
     for (const doc of documents) {
@@ -207,6 +217,24 @@ export async function POST(request: NextRequest) {
           documentsCount: uploadedDocuments.length,
           conflict: profileResult.conflict,
         },
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        caseId: caseRecord.id,
+        profileId: profileResult.profileId,
+        action: 'CHECKLIST_DOCUMENTAL_CREADO',
+        details: { source: 'PUBLIC_FORM' },
+      },
+    })
+
+    await prisma.notification.create({
+      data: {
+        caseId: caseRecord.id,
+        type: 'CASE_CREATED',
+        title: 'Solicitud publica recibida',
+        message: `${firstName} ${lastName} envio una solicitud de viaje a ${destinationCity}, ${destinationCountry}.`,
       },
     })
 

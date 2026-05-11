@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { DesignationStatus, GeneratedDocumentType } from '@prisma/client'
+import {
+  buildInformativeLiquidationFilename,
+  generateInformativeLiquidationWorkbook,
+  LIQUIDATION_XLSX_CONTENT_TYPE,
+} from '@/lib/documents/liquidation'
 
 export async function GET(
   request: NextRequest,
@@ -42,14 +47,28 @@ export async function GET(
     return NextResponse.json({ error: 'Formulario de liquidacion no generado' }, { status: 404 })
   }
 
+  const workbook = await generateInformativeLiquidationWorkbook(designation.case)
+  const filename = generated.document.originalFilename || buildInformativeLiquidationFilename(designation.case)
+
   await prisma.auditLog.create({
     data: {
       caseId: designation.caseId,
       profileId: designation.case.profileId,
       action: 'FORMULARIO_LIQUIDACION_DESCARGADO',
-      details: { documentId: generated.document.id, token: params.token },
+      details: {
+        documentId: generated.document.id,
+        token: params.token,
+        usedTemplate: workbook.usedTemplate,
+        mappedCells: workbook.mappedCells,
+      },
     },
   })
 
-  return NextResponse.redirect(generated.document.blobUrl)
+  return new NextResponse(new Uint8Array(workbook.buffer), {
+    headers: {
+      'Content-Type': LIQUIDATION_XLSX_CONTENT_TYPE,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
+    },
+  })
 }

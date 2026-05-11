@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 import { CaseSource, CaseStatus, WorkflowStep, TaskStatus } from '@prisma/client'
+import { ensureDefaultRequirements } from '@/lib/cases/requirements'
 
 export async function POST(request: NextRequest) {
   const { user, response } = await getAuthorizedUser(request, 'cases:create')
@@ -60,6 +61,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    await ensureDefaultRequirements(prisma, caseRecord.id)
+
     await prisma.auditLog.create({
       data: {
         actorUserId: user.userId,
@@ -67,6 +70,25 @@ export async function POST(request: NextRequest) {
         profileId: profile.id,
         action: 'CASE_CREATED',
         details: { source: 'MANUAL' },
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: user.userId,
+        caseId: caseRecord.id,
+        profileId: profile.id,
+        action: 'CHECKLIST_DOCUMENTAL_CREADO',
+        details: { source: 'MANUAL' },
+      },
+    })
+
+    await prisma.notification.create({
+      data: {
+        caseId: caseRecord.id,
+        type: 'CASE_CREATED',
+        title: 'Caso manual creado',
+        message: `Se creo un caso manual para ${profile.fullName || profile.primaryEmail || 'un colaborador'}.`,
       },
     })
 

@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { labelFor } from '@/lib/labels'
 
 interface MatrixEntry {
   id: string
@@ -24,8 +24,18 @@ interface MatrixEntry {
   observations: string | null
   status: string
   daysUntilTravel: number
+  daysUntilMapreDeadline: number
   isWithin30Days: boolean
   isCritical: boolean
+  isMapreDeadlineCritical: boolean
+  isOutsideMapreDeadline: boolean
+  requiereAutorizacionPresidencia: boolean
+  autorizacionRecibida: boolean
+  personaDesignadaConfirmada: boolean
+  viajeRecurrente: boolean
+  viajeImprevisto: boolean
+  fechaLimiteMapre: string | null
+  nivelRiesgo: string
   convertedCase?: { id: string; status: string } | null
 }
 
@@ -45,6 +55,11 @@ const emptyForm = {
   objective: '',
   perDiemType: '',
   observations: '',
+  requiereAutorizacionPresidencia: false,
+  autorizacionRecibida: false,
+  personaDesignadaConfirmada: false,
+  viajeRecurrente: false,
+  viajeImprevisto: false,
 }
 
 export default function MatrizPage() {
@@ -138,18 +153,7 @@ export default function MatrizPage() {
   const critical = entries.filter((entry) => entry.isCritical).length
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header style={{ backgroundColor: 'white', padding: '1rem 2rem', borderBottom: '1px solid #ddd' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Image src="/indotel-logo.jpg" alt="INDOTEL Logo" width={50} height={50} style={{ objectFit: 'contain' }} />
-          <div>
-            <Link href="/dashboard" style={{ color: '#0066cc', textDecoration: 'none' }}>← Dashboard</Link>
-            <h1 style={{ margin: '0.25rem 0 0 0' }}>Matriz de Viajes</h1>
-          </div>
-        </div>
-      </header>
-
-      <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <Stat label="Total en matriz" value={entries.length} color="#0066cc" />
           <Stat label="Viajes próximos a 30 días" value={within30Days} color="#fd7e14" />
@@ -186,6 +190,13 @@ export default function MatrizPage() {
               <Field label="Institución organizadora" name="organizerInstitution" value={form.organizerInstitution} onChange={setForm} />
               <Field label="Tipo de viáticos" name="perDiemType" value={form.perDiemType} onChange={setForm} />
             </div>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+              <Checkbox label="Requiere autorización Presidencia" name="requiereAutorizacionPresidencia" checked={form.requiereAutorizacionPresidencia} onChange={setForm} />
+              <Checkbox label="Autorización recibida" name="autorizacionRecibida" checked={form.autorizacionRecibida} onChange={setForm} />
+              <Checkbox label="Persona designada confirmada" name="personaDesignadaConfirmada" checked={form.personaDesignadaConfirmada} onChange={setForm} />
+              <Checkbox label="Viaje recurrente" name="viajeRecurrente" checked={form.viajeRecurrente} onChange={setForm} />
+              <Checkbox label="Viaje imprevisto" name="viajeImprevisto" checked={form.viajeImprevisto} onChange={setForm} />
+            </div>
             <textarea value={form.objective} onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))} placeholder="Objetivo del viaje" style={{ ...inputStyle, width: '100%', marginTop: '1rem', minHeight: '80px' }} />
             <textarea value={form.observations} onChange={(e) => setForm((prev) => ({ ...prev, observations: e.target.value }))} placeholder="Observaciones" style={{ ...inputStyle, width: '100%', marginTop: '1rem', minHeight: '80px' }} />
             <button disabled={saving} type="submit" style={{ ...primaryButton, marginTop: '1rem' }}>
@@ -207,9 +218,17 @@ export default function MatrizPage() {
                   <p style={{ color: '#666', margin: '0.5rem 0 0 0' }}>
                     Salida estimada: {entry.estimatedDepartureDate ? new Date(entry.estimatedDepartureDate).toLocaleDateString('es-DO') : 'No definida'} · {entry.daysUntilTravel} días
                   </p>
+                  <p style={{ color: entry.isOutsideMapreDeadline ? '#dc3545' : entry.isMapreDeadlineCritical ? '#fd7e14' : '#666', margin: '0.35rem 0 0 0', fontWeight: entry.isMapreDeadlineCritical ? 700 : 400 }}>
+                    MAPRE 15 días: {entry.fechaLimiteMapre ? new Date(entry.fechaLimiteMapre).toLocaleDateString('es-DO') : 'No definida'} · {entry.daysUntilMapreDeadline} días al límite · Riesgo {labelFor(entry.nivelRiesgo)}
+                  </p>
+                  {(entry.viajeImprevisto || entry.isOutsideMapreDeadline) && (
+                    <p style={{ color: '#dc3545', margin: '0.35rem 0 0 0', fontWeight: 700 }}>
+                      {entry.viajeImprevisto ? 'Viaje imprevisto' : ''}{entry.viajeImprevisto && entry.isOutsideMapreDeadline ? ' · ' : ''}{entry.isOutsideMapreDeadline ? 'Fuera de plazo MAPRE' : ''}
+                    </p>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ padding: '0.35rem 0.75rem', borderRadius: '999px', backgroundColor: '#e9ecef', fontSize: '0.85rem' }}>{entry.status}</span>
+                  <span style={{ padding: '0.35rem 0.75rem', borderRadius: '999px', backgroundColor: '#e9ecef', fontSize: '0.85rem' }}>{labelFor(entry.status)}</span>
                   {entry.convertedCase ? (
                     <Link href={`/dashboard/cases/${entry.convertedCase.id}`} style={linkButton}>Ver caso</Link>
                   ) : (
@@ -223,7 +242,6 @@ export default function MatrizPage() {
             </div>
           ))}
         </div>
-      </main>
     </div>
   )
 }
@@ -256,6 +274,25 @@ function Field({
     <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontWeight: 500 }}>
       {label}
       <input required={required} type={type} value={value} onChange={(e) => onChange((prev) => ({ ...prev, [name]: e.target.value }))} style={inputStyle} />
+    </label>
+  )
+}
+
+function Checkbox({
+  label,
+  name,
+  checked,
+  onChange,
+}: {
+  label: string
+  name: keyof typeof emptyForm
+  checked: boolean
+  onChange: React.Dispatch<React.SetStateAction<typeof emptyForm>>
+}) {
+  return (
+    <label style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', fontWeight: 500 }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange((prev) => ({ ...prev, [name]: e.target.checked }))} />
+      {label}
     </label>
   )
 }

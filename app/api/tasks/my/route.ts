@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 import { TaskStatus } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { user: authUser, response } = await getAuthorizedUser(request, 'tasks:read')
+  if (!authUser) return response!
 
   const user = await prisma.user.findUnique({
     where: { id: authUser.userId },

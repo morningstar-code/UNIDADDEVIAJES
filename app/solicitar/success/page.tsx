@@ -24,7 +24,7 @@ export default function SuccessPage({ searchParams }: SuccessPageProps) {
         }}
       >
         <Image
-          src="/indotel-logo.jpg"
+          src="/indotel-logo.svg"
           alt="INDOTEL Logo"
           width={60}
           height={60}

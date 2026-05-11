@@ -11,6 +11,7 @@ async function main() {
     'cases:read',
     'profiles:read',
     'documents:read',
+    'documents:attach',
     'matrix:read',
     'notifications:read',
   ]
@@ -60,6 +61,8 @@ async function main() {
         'documents:upload',
         'documents:validate',
         'documents:reject',
+        'documents:attach',
+        'sharepoint:sync',
         'documents:generate',
         'liquidation:generate',
         'liquidation:review',

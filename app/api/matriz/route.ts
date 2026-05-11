@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { getAuthorizedUser } from '@/lib/auth/permissions'
-import { TravelMatrixStatus } from '@prisma/client'
+import { MatrixRiskLevel, TravelMatrixStatus } from '@prisma/client'
 
 function parseDate(value: unknown) {
   if (!value || typeof value !== 'string') return undefined
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function mapreDeadlineFor(travelDate?: Date) {
+  if (!travelDate) return undefined
+  const deadline = new Date(travelDate)
+  deadline.setDate(deadline.getDate() - 15)
+  return deadline
+}
+
+function riskLevelFor(travelDate?: Date, unexpected?: boolean) {
+  if (!travelDate) return MatrixRiskLevel.NORMAL
+  const daysUntilTravel = Math.ceil((travelDate.getTime() - new Date().getTime()) / 86400000)
+  if (daysUntilTravel < 15 || unexpected) return MatrixRiskLevel.FUERA_DE_PLAZO
+  if (daysUntilTravel <= 15) return MatrixRiskLevel.CRITICO
+  if (daysUntilTravel <= 20) return MatrixRiskLevel.ADVERTENCIA
+  return MatrixRiskLevel.NORMAL
 }
 
 export async function GET(request: NextRequest) {
@@ -57,11 +73,15 @@ export async function GET(request: NextRequest) {
   const alerts = entries.map((entry) => {
     const travelDate = entry.estimatedDepartureDate || entry.eventStartDate
     const daysUntilTravel = Math.ceil((travelDate.getTime() - now.getTime()) / 86400000)
+    const daysUntilMapreDeadline = daysUntilTravel - 15
     return {
       ...entry,
       daysUntilTravel,
+      daysUntilMapreDeadline,
       isWithin30Days: daysUntilTravel <= 30 && daysUntilTravel >= 0,
       isCritical: daysUntilTravel <= 20 && daysUntilTravel >= 0,
+      isMapreDeadlineCritical: daysUntilTravel <= 15,
+      isOutsideMapreDeadline: daysUntilTravel < 15,
       hasPauta: entry.status === 'PAUTA_RI_DADA' || entry.status === 'CONVERTIDO_A_CASO',
     }
   })
@@ -84,6 +104,9 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
     const eventStartDate = parseDate(data.eventStartDate)
+    const estimatedDepartureDate = parseDate(data.estimatedDepartureDate)
+    const travelDate = estimatedDepartureDate || eventStartDate
+    const viajeImprevisto = Boolean(data.viajeImprevisto)
 
     if (!data.eventName || !data.country || !eventStartDate) {
       return NextResponse.json(
@@ -99,7 +122,7 @@ export async function POST(request: NextRequest) {
         city: data.city || undefined,
         eventStartDate,
         eventEndDate: parseDate(data.eventEndDate),
-        estimatedDepartureDate: parseDate(data.estimatedDepartureDate),
+        estimatedDepartureDate,
         estimatedReturnDate: parseDate(data.estimatedReturnDate),
         collaboratorName: data.collaboratorName || undefined,
         collaboratorEmail: data.collaboratorEmail || undefined,
@@ -109,6 +132,14 @@ export async function POST(request: NextRequest) {
         objective: data.objective || undefined,
         perDiemType: data.perDiemType || undefined,
         observations: data.observations || undefined,
+        programadoEnMatriz: data.programadoEnMatriz ?? true,
+        requiereAutorizacionPresidencia: Boolean(data.requiereAutorizacionPresidencia),
+        autorizacionRecibida: Boolean(data.autorizacionRecibida),
+        personaDesignadaConfirmada: Boolean(data.personaDesignadaConfirmada),
+        viajeRecurrente: Boolean(data.viajeRecurrente),
+        viajeImprevisto,
+        fechaLimiteMapre: mapreDeadlineFor(travelDate),
+        nivelRiesgo: riskLevelFor(travelDate, viajeImprevisto),
         responsibleUserId: data.responsibleUserId || undefined,
         status: TravelMatrixStatus.PENDIENTE_PAUTA_RI,
         createdByUserId: user.userId,

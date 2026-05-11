@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 interface Role { id: string; name: string }
@@ -60,17 +58,7 @@ export default function UsersPage() {
   if (loading) return <div style={{ padding: '2rem' }}>Loading...</div>
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header style={{ backgroundColor: 'white', padding: '1rem 2rem', borderBottom: '1px solid #ddd' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Image src="/indotel-logo.jpg" alt="INDOTEL Logo" width={50} height={50} style={{ objectFit: 'contain' }} />
-          <div>
-            <Link href="/dashboard" style={{ color: '#0066cc', textDecoration: 'none' }}>← Dashboard</Link>
-            <h1 style={{ margin: '0.25rem 0 0 0' }}>Gestión de Usuarios</h1>
-          </div>
-        </div>
-      </header>
-      <main style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
         <form onSubmit={createUser} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
           <h2>Crear usuario</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
@@ -98,7 +86,6 @@ export default function UsersPage() {
             </div>
           ))}
         </div>
-      </main>
     </div>
   )
 }

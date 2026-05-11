@@ -48,7 +48,7 @@ export async function getAuthorizedUser(
 
   if (permission && !hasPermission(authorizedUser, permission)) {
     return {
-      user: authorizedUser,
+      user: null,
       response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     }
   }

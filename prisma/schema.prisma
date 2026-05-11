@@ -24,13 +24,27 @@ enum UserRole {
 
 enum CaseSource {
   EMAIL_AUTOMATION
+  EMAIL_AUTHORIZATION
   MANUAL
   PUBLIC_FORM
   MATRIZ
   DESIGNATION
+  AUTHORIZATION_MEMO
+  DIRECT_INSTRUCTION
 }
 
 enum CaseStatus {
+  PENDIENTE_CLASIFICACION
+  AUTORIZACION_RECIBIDA
+  PENDIENTE_VALIDACION_AMPARO
+  VALIDADO_POR_AMPARO
+  DEVUELTO_POR_AMPARO
+  RECHAZADO_POR_AMPARO
+  INSTRUCCION_RECIBIDA
+  SIN_MEMORANDO_JUSTIFICADO
+  VIAJE_IMPREVISTO
+  FUERA_PLAZO_MAPRE
+  PENDIENTE_DESIGNACION
   MATRIZ_REGISTRADA
   PENDIENTE_PAUTA_RI
   PAUTA_RI_DADA
@@ -46,12 +60,14 @@ enum CaseStatus {
   FORMULARIO_EN_ELABORACION
   CARTA_EN_ELABORACION
   EXPEDIENTE_ARMADO
+  ENVIADO_MAPRE
   DESPACHO_REVIEW
   CONSEJO_DIRECTIVO_FIRMA
   EXPEDIENTE_FIRMADO_RECIBIDO
   COORDINACION_ADMINISTRATIVA
   VIAJE_REALIZADO
   PENDIENTE_INFORME_Y_LIQUIDACION
+  PENDIENTE_LIQUIDACION
   LIQUIDACION_EN_REVISION
   LIQUIDACION_REQUIERE_CORRECCION
   LIQUIDACION_APROBADA
@@ -71,6 +87,8 @@ enum CaseStatus {
 }
 
 enum WorkflowStep {
+  AUTHORIZATION_VALIDATION
+  AUTHORIZATION_CORRECTION
   PENDIENTE_PAUTA_RI
   DESIGNATION
   COLLABORATOR_ACCEPTANCE
@@ -100,6 +118,9 @@ enum TaskStatus {
 }
 
 enum DocumentType {
+  MEMORANDO_AUTORIZACION_PRESIDENCIA
+  EVIDENCIA_INSTRUCCION_DIRECTA
+  CORREO_INSTRUCCION
   CORREO_DESIGNACION
   ACEPTACION_COLABORADOR
   CEDULA
@@ -112,6 +133,8 @@ enum DocumentType {
   TICKET
   MEMO_APROBACION
   FORMULARIO_SOLICITUD_VIAJE
+  FORMULARIO_SOLICITUD_VIAJE_EXTERIOR
+  CARTA_MAPRE
   CARTA_MINISTRO_ADMINISTRATIVO
   EXPEDIENTE_FIRMADO
   JUSTIFICACION_FIRMA_DIGITAL
@@ -142,6 +165,39 @@ enum TravelMatrixStatus {
   CANCELLED
 }
 
+enum TravelAuthorizationType {
+  MEMORANDO_PRESIDENCIA
+  CORREO_INSTRUCCION
+  INSTRUCCION_DIRECTA_RI
+  MATRIZ_PROGRAMADA_CONFIRMADA
+  VIAJE_IMPREVISTO
+  OTRO
+}
+
+enum TravelAuthorizationValidationStatus {
+  PENDIENTE_VALIDACION_AMPARO
+  VALIDADO_POR_AMPARO
+  DEVUELTO_POR_AMPARO
+  RECHAZADO_POR_AMPARO
+}
+
+enum AuthorizationEvidenceChannel {
+  MEMORANDO_FORMAL
+  CORREO_AMPARO
+  CORREO_PRESIDENCIA
+  CORREO_DIRECTOR_SECRETARIA
+  INSTRUCCION_VERBAL_REGISTRADA
+  WHATSAPP
+  OTRO
+}
+
+enum MatrixRiskLevel {
+  NORMAL
+  ADVERTENCIA
+  CRITICO
+  FUERA_DE_PLAZO
+}
+
 enum DesignationStatus {
   DRAFT
   SENT
@@ -159,6 +215,21 @@ enum DocumentRequirementStatus {
   VALIDATED
   REJECTED
   WAIVED
+}
+
+enum DocumentSource {
+  COLABORADOR
+  STAFF_UPLOAD
+  SHAREPOINT
+  GENERATED
+  EMAIL
+}
+
+enum ExternalDocumentStatus {
+  ACTIVE
+  PENDING_REVIEW
+  EXPIRED
+  IGNORED
 }
 
 enum GeneratedDocumentType {
@@ -181,7 +252,27 @@ enum SignatureType {
 }
 
 enum NotificationType {
+  CASE_CREATED
+  AUTHORIZATION_RECEIVED
+  DIRECT_INSTRUCTION_REGISTERED
+  MEMO_UPLOADED
+  PENDING_AMPARO_VALIDATION
+  AMPARO_VALIDATED
+  AMPARO_RETURNED
+  AMPARO_REJECTED
+  URGENT_TRAVEL_CREATED
+  OUT_OF_MAPRE_DEADLINE
+  DESIGNATION_READY
+  COLLABORATOR_DOCUMENTS_REQUESTED
+  DOCUMENTS_COMPLETE
+  MAPRE_LETTER_GENERATED
+  PROFILE_DOCUMENT_MISSING
+  PROFILE_DOCUMENT_EXPIRED
+  SHAREPOINT_SYNC_ERRORS
+  TRAVELER_CHANGED
+  CASE_DOCUMENTS_FROM_PROFILE_ATTACHED
   MATRIZ_CREATED
+  MATRIX_CONVERTED_TO_CASE
   TRAVEL_WINDOW_30_DAYS
   RI_PAUTA_GIVEN
   DESIGNATION_SENT
@@ -191,9 +282,18 @@ enum NotificationType {
   DOCUMENT_REJECTED
   EXPEDIENTE_COMPLETE
   SENT_TO_DESPACHO
+  DESPACHO_RETURNED
+  DESPACHO_APPROVED
   SENT_TO_CONSEJO
   EXPEDIENTE_SIGNED
+  SIGNED_EXPEDIENTE_RECEIVED
+  TRAVEL_COMPLETED
+  LIQUIDATION_REQUESTED
+  LIQUIDATION_APPROVED
+  LIQUIDATION_RETURNED
+  LIQUIDATION_WAIVED
   CASE_CLOSED
+  CASE_CANCELLED
 }
 
 model User {
@@ -219,6 +319,7 @@ model User {
   notifications Notification[]
   readReceipts ReadReceipt[]
   caseClosures CaseClosure[]
+  registeredTravelAuthorizations TravelAuthorization[] @relation("AuthorizationRegistrar")
 
   @@index([email])
   @@index([roleId])
@@ -242,6 +343,13 @@ model Profile {
   cedula          String?  @unique // Unique when not null
   passportNumber  String?
   passportCountry String?
+  passportExpirationDate DateTime?
+  visaCountry     String?
+  visaExpirationDate DateTime?
+  sharePointFolderId String?
+  sharePointFolderName String?
+  sharePointLastSyncedAt DateTime?
+  isIncompleteFromSharePoint Boolean @default(false)
   phone           String?
   cargo           String?
   departamento    String?
@@ -250,12 +358,14 @@ model Profile {
 
   cases     Case[]
   documents Document[]
+  externalDocuments ProfileExternalDocument[]
   auditLogs AuditLog[]
   matrixEntries TravelMatrixEntry[]
 
   @@index([primaryEmail])
   @@index([cedula])
   @@index([passportNumber])
+  @@index([sharePointFolderId])
 }
 
 model Case {
@@ -299,6 +409,7 @@ model Case {
 
   tasks                Task[]
   documents            Document[]
+  externalDocuments    ProfileExternalDocument[]
   auditLogs            AuditLog[]
   designations         Designation[]
   documentRequirements DocumentRequirement[]
@@ -306,6 +417,7 @@ model Case {
   notifications        Notification[]
   readReceipts         ReadReceipt[]
   closures             CaseClosure[]
+  travelAuthorization  TravelAuthorization?
 
   @@index([profileId])
   @@index([status])
@@ -313,6 +425,43 @@ model Case {
   @@index([clientGeneratedId])
   @@index([matrixEntryId])
   @@index([currentWorkflowStep])
+}
+
+model TravelAuthorization {
+  id                       String                              @id @default(uuid())
+  caseId                   String                              @unique
+  case                     Case                                @relation(fields: [caseId], references: [id])
+  type                     TravelAuthorizationType
+  evidenceChannel          AuthorizationEvidenceChannel?
+  authorizationDocumentId  String?
+  authorizationDocumentUrl String?
+  authorizationDocumentName String?
+  sourceEmailMessageId     String?
+  sourceEmailRaw           String?                             @db.Text
+  authorizedBy             String
+  registeredByUserId       String?
+  registeredBy             User?                               @relation("AuthorizationRegistrar", fields: [registeredByUserId], references: [id])
+  authorizedAt             DateTime?
+  registeredAt             DateTime                            @default(now())
+  justification            String                              @db.Text
+  requiresAmparoValidation Boolean                             @default(true)
+  validationStatus         TravelAuthorizationValidationStatus @default(PENDIENTE_VALIDACION_AMPARO)
+  validationComment        String?                             @db.Text
+  validatedByUserId        String?
+  validatedAt              DateTime?
+  isRecurringTravel        Boolean                             @default(false)
+  isUnexpectedTravel       Boolean                             @default(false)
+  isOutOfMapreDeadline     Boolean                             @default(false)
+  mapreDeadline            DateTime?
+  createdAt                DateTime                            @default(now())
+  updatedAt                DateTime                            @updatedAt
+
+  @@index([type])
+  @@index([validationStatus])
+  @@index([registeredByUserId])
+  @@index([authorizedBy])
+  @@index([isUnexpectedTravel])
+  @@index([isOutOfMapreDeadline])
 }
 
 model Task {
@@ -354,6 +503,14 @@ model Document {
   checksumSha256       String?
   isCurrent            Boolean      @default(true)
   status               DocumentRequirementStatus @default(UPLOADED)
+  source               DocumentSource @default(STAFF_UPLOAD)
+  sharePointDriveId    String?
+  sharePointItemId     String?
+  sharePointWebUrl     String?
+  sharePointLastModified DateTime?
+  sourceDocumentId     String?
+  expirationDate       DateTime?
+  visaCountry          String?
   uploadedByUserId     String?
   uploadedByUser       User?        @relation("DocumentUploader", fields: [uploadedByUserId], references: [id])
   uploadedByName       String?
@@ -369,6 +526,57 @@ model Document {
   @@index([matrixEntryId])
   @@index([docType])
   @@index([status])
+  @@index([source])
+  @@index([sharePointDriveId, sharePointItemId])
+}
+
+model SharePointSyncConfig {
+  id             String   @id @default(uuid())
+  siteId         String?
+  driveId        String?
+  baseFolderId   String?
+  baseFolderName String?
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([driveId])
+}
+
+model ProfileExternalDocument {
+  id                     String                 @id @default(uuid())
+  profileId              String
+  profile                Profile                @relation(fields: [profileId], references: [id])
+  caseId                 String?
+  case                   Case?                  @relation(fields: [caseId], references: [id])
+  copiedDocumentId       String?
+  source                 DocumentSource         @default(SHAREPOINT)
+  sharePointSiteId       String?
+  sharePointDriveId      String
+  sharePointItemId       String
+  sharePointWebUrl       String?
+  sharePointLastModified DateTime?
+  parentFolderId         String?
+  parentFolderName       String?
+  modifiedBy             String?
+  originalFileName       String
+  mimeType               String
+  sizeBytes              Int
+  documentType           DocumentType
+  status                 ExternalDocumentStatus @default(ACTIVE)
+  expirationDate         DateTime?
+  visaCountry            String?
+  syncedAt               DateTime               @default(now())
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  @@unique([sharePointDriveId, sharePointItemId])
+  @@index([profileId])
+  @@index([caseId])
+  @@index([documentType])
+  @@index([status])
+  @@index([source])
 }
 
 model ProcessedMessage {
@@ -424,6 +632,14 @@ model TravelMatrixEntry {
   objective                String?            @db.Text
   perDiemType              String?
   observations             String?            @db.Text
+  programadoEnMatriz       Boolean            @default(true)
+  requiereAutorizacionPresidencia Boolean     @default(false)
+  autorizacionRecibida     Boolean            @default(false)
+  personaDesignadaConfirmada Boolean          @default(false)
+  viajeRecurrente          Boolean            @default(false)
+  viajeImprevisto          Boolean            @default(false)
+  fechaLimiteMapre         DateTime?
+  nivelRiesgo              MatrixRiskLevel     @default(NORMAL)
   status                   TravelMatrixStatus @default(MATRIZ_REGISTRADA)
   responsibleUserId        String?
   responsibleUser          User?              @relation("MatrixResponsible", fields: [responsibleUserId], references: [id])

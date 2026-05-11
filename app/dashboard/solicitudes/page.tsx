@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
-import Image from 'next/image'
+import { labelFor } from '@/lib/labels'
 
 interface Case {
   id: string
@@ -139,19 +139,7 @@ export default function SolicitudesPage() {
   }
   
   const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      RECEIVED: 'Recibido',
-      DOCS_VALIDATION: 'Validación de Documentos',
-      TECH_REVIEW: 'Revisión Técnica',
-      MANAGER_APPROVAL: 'Aprobación Gerencial',
-      FINANCE_APPROVAL: 'Aprobación Finanzas',
-      HR_APPROVAL: 'Aprobación RRHH',
-      APPROVED: 'Aprobado',
-      REJECTED: 'Rechazado',
-      NEEDS_INFO: 'Requiere Información',
-      CLOSED: 'Cerrado',
-    }
-    return labels[status] || status
+    return labelFor(status)
   }
 
   const formatDate = (dateString: string) => {
@@ -184,54 +172,7 @@ export default function SolicitudesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header
-        style={{
-          backgroundColor: 'white',
-          padding: '1rem 2rem',
-          borderBottom: '1px solid #ddd',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Image
-            src="/indotel-logo.jpg"
-            alt="INDOTEL Logo"
-            width={50}
-            height={50}
-            style={{ objectFit: 'contain' }}
-          />
-          <div>
-            <Link
-              href="/dashboard"
-              style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-            >
-              ← Dashboard
-            </Link>
-            <h1 style={{ margin: 0, display: 'inline' }}>
-              Solicitudes Entrantes
-              {unreadCount > 0 && (
-                <span
-                  style={{
-                    marginLeft: '0.5rem',
-                    padding: '0.25rem 0.5rem',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    borderRadius: '12px',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  {unreadCount} nueva{unreadCount > 1 ? 's' : ''}
-                </span>
-              )}
-            </h1>
-          </div>
-        </div>
-      </header>
-
-      <main style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Filters */}
         <div
           style={{
@@ -438,7 +379,6 @@ export default function SolicitudesPage() {
             <button disabled={page * 20 >= totalCount} onClick={() => setPage((prev) => prev + 1)} style={{ padding: '0.5rem 1rem' }}>Siguiente</button>
           </div>
         </div>
-      </main>
     </div>
   )
 }

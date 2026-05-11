@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 
 interface Profile {
   id: string
@@ -14,6 +13,10 @@ interface Profile {
   cedula: string | null
   passportNumber: string | null
   passportCountry: string | null
+  passportExpirationDate: string | null
+  visaCountry: string | null
+  visaExpirationDate: string | null
+  sharePointLastSyncedAt: string | null
   phone: string | null
   cargo: string | null
   departamento: string | null
@@ -23,7 +26,24 @@ interface Profile {
     originalFilename: string
     blobUrl: string
     mimeType: string | null
+    source: string
+    expirationDate: string | null
+    visaCountry: string | null
+    sharePointWebUrl: string | null
     createdAt: string
+  }>
+  externalDocuments: Array<{
+    id: string
+    documentType: string
+    originalFileName: string
+    mimeType: string
+    sizeBytes: number
+    sharePointWebUrl: string | null
+    sharePointLastModified: string | null
+    parentFolderName: string | null
+    status: string
+    expirationDate: string | null
+    syncedAt: string
   }>
   cases: Array<{
     id: string
@@ -44,6 +64,7 @@ export default function ProfileDetailPage() {
   const { user, loading } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<'docs' | 'cases'>('docs')
   const [viewedCases, setViewedCases] = useState<Set<string>>(new Set())
   const [selectedDocument, setSelectedDocument] = useState<{
@@ -104,6 +125,23 @@ export default function ProfileDetailPage() {
     }
   }
 
+  const syncSharePoint = async () => {
+    setSyncing(true)
+    const token = localStorage.getItem('token')
+    const response = await fetch('/api/sharepoint/sync-profiles', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json()
+    setSyncing(false)
+    if (response.ok) {
+      await fetchProfile()
+      alert(`Sincronizacion completada. Documentos asociados: ${data.summary?.documentsAssociated || 0}.`)
+    } else {
+      alert(data.error || 'No se pudo sincronizar SharePoint')
+    }
+  }
+
   if (loading || loadingProfile) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -121,35 +159,13 @@ export default function ProfileDetailPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header
-        style={{
-          backgroundColor: 'white',
-          padding: '1rem 2rem',
-          borderBottom: '1px solid #ddd',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-        }}
-      >
-        <Image
-          src="/indotel-logo.jpg"
-          alt="INDOTEL Logo"
-          width={50}
-          height={50}
-          style={{ objectFit: 'contain' }}
-        />
-        <div>
-          <Link
-            href="/dashboard/profiles"
-            style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-          >
-            ← Perfiles
-          </Link>
-          <h1 style={{ margin: '1rem 0 0 0' }}>{profile.fullName || profile.primaryEmail}</h1>
-        </div>
-      </header>
-      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '1rem' }}>
+        <Link href="/dashboard/profiles" style={{ color: '#1a56db', textDecoration: 'none', fontSize: '0.875rem' }}>
+          ← Volver a Perfiles
+        </Link>
+        <h1 style={{ margin: '0.5rem 0 0', fontSize: '1.3rem', color: '#1e293b' }}>{profile.fullName || profile.primaryEmail}</h1>
+      </div>
         <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '1rem' }}>
           <h2 style={{ marginBottom: '1rem' }}>Información</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
@@ -167,6 +183,17 @@ export default function ProfileDetailPage() {
                 {profile.passportCountry && ` (${profile.passportCountry})`}
               </div>
             )}
+            {profile.passportExpirationDate && (
+              <div>
+                <strong>Vence pasaporte:</strong> {new Date(profile.passportExpirationDate).toLocaleDateString('es-DO')}
+              </div>
+            )}
+            {profile.visaCountry && (
+              <div>
+                <strong>Visa:</strong> {profile.visaCountry}
+                {profile.visaExpirationDate && ` vence ${new Date(profile.visaExpirationDate).toLocaleDateString('es-DO')}`}
+              </div>
+            )}
             {profile.phone && (
               <div>
                 <strong>Teléfono:</strong> {profile.phone}
@@ -182,7 +209,27 @@ export default function ProfileDetailPage() {
                 <strong>Departamento:</strong> {profile.departamento}
               </div>
             )}
+            {profile.sharePointLastSyncedAt && (
+              <div>
+                <strong>Última sincronización SharePoint:</strong> {new Date(profile.sharePointLastSyncedAt).toLocaleString('es-DO')}
+              </div>
+            )}
           </div>
+          <button
+            onClick={syncSharePoint}
+            disabled={syncing}
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem 1rem',
+              backgroundColor: '#198754',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: syncing ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar desde SharePoint'}
+          </button>
           {/* Total Amount */}
           {(() => {
             const casesWithAmount = profile.cases.filter((c) => c.montoEstimado)
@@ -247,10 +294,52 @@ export default function ProfileDetailPage() {
           <div style={{ padding: '1.5rem' }}>
             {activeTab === 'docs' ? (
               <div>
-                {profile.documents.length === 0 ? (
+                {profile.documents.length === 0 && profile.externalDocuments.length === 0 ? (
                   <p>No hay documentos base</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {profile.externalDocuments.map((doc) => (
+                      <div
+                        key={doc.id}
+                        style={{
+                          padding: '1rem',
+                          border: '1px solid #b6d4fe',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          backgroundColor: '#f0f6ff',
+                        }}
+                      >
+                        <div>
+                          <strong>{doc.originalFileName}</strong>
+                          <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                            Tipo: {doc.documentType} | Origen: SharePoint | Estado: {doc.status} | Sincronizado: {new Date(doc.syncedAt).toLocaleDateString('es-DO')}
+                          </p>
+                          {doc.expirationDate && (
+                            <p style={{ margin: 0, color: new Date(doc.expirationDate) < new Date() ? '#dc3545' : '#666', fontSize: '0.9rem' }}>
+                              Vence: {new Date(doc.expirationDate).toLocaleDateString('es-DO')}
+                            </p>
+                          )}
+                        </div>
+                        {doc.sharePointWebUrl && (
+                          <a
+                            href={doc.sharePointWebUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: '0.5rem 1rem',
+                              backgroundColor: '#198754',
+                              color: 'white',
+                              borderRadius: '4px',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            Ver en SharePoint
+                          </a>
+                        )}
+                      </div>
+                    ))}
                     {profile.documents.map((doc) => {
                       const isImage = doc.mimeType?.startsWith('image/')
                       const isPdf = doc.mimeType === 'application/pdf'
@@ -269,8 +358,13 @@ export default function ProfileDetailPage() {
                           <div>
                             <strong>{doc.originalFilename}</strong>
                             <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
-                              Tipo: {doc.docType} | {new Date(doc.createdAt).toLocaleDateString()}
+                              Tipo: {doc.docType} | Origen: {doc.source || 'Blob'} | {new Date(doc.createdAt).toLocaleDateString()}
                             </p>
+                            {doc.expirationDate && (
+                              <p style={{ margin: 0, color: new Date(doc.expirationDate) < new Date() ? '#dc3545' : '#666', fontSize: '0.9rem' }}>
+                                Vence: {new Date(doc.expirationDate).toLocaleDateString('es-DO')}
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() =>
@@ -424,7 +518,6 @@ export default function ProfileDetailPage() {
             )}
           </div>
         </div>
-      </main>
 
       {/* Document Preview Modal */}
       {selectedDocument && (

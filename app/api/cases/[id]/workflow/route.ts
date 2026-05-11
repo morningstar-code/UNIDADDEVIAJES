@@ -37,6 +37,137 @@ function auditActionForWorkflow(action: string) {
   return actions[action] || action
 }
 
+const ALLOWED_TRANSITIONS: Partial<Record<string, CaseStatus[]>> = {
+  MARK_EXPEDIENTE_COMPLETE: [
+    CaseStatus.DOCUMENTOS_COMPLETOS,
+    CaseStatus.CARTA_EN_ELABORACION,
+    CaseStatus.FORMULARIO_EN_ELABORACION,
+  ],
+  SEND_DESPACHO: [CaseStatus.EXPEDIENTE_ARMADO],
+  DESPACHO_APPROVE: [CaseStatus.DESPACHO_REVIEW],
+  DESPACHO_RETURN: [CaseStatus.DESPACHO_REVIEW],
+  CONSEJO_SIGN: [CaseStatus.CONSEJO_DIRECTIVO_FIRMA],
+  RECEIVE_SIGNED: [CaseStatus.EXPEDIENTE_FIRMADO_RECIBIDO],
+  MARK_TRAVEL_COMPLETED: [CaseStatus.COORDINACION_ADMINISTRATIVA],
+  REQUEST_LIQUIDATION: [CaseStatus.VIAJE_REALIZADO],
+  APPROVE_LIQUIDATION: [
+    CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION,
+    CaseStatus.LIQUIDACION_EN_REVISION,
+    CaseStatus.LIQUIDACION_REQUIERE_CORRECCION,
+  ],
+  RETURN_LIQUIDATION: [CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION, CaseStatus.LIQUIDACION_EN_REVISION],
+  NO_APLICA_LIQUIDACION: [CaseStatus.VIAJE_REALIZADO, CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION],
+  CLOSE: [CaseStatus.LIQUIDACION_APROBADA, CaseStatus.NO_APLICA_LIQUIDACION],
+}
+
+const REQUIRED_DISPATCH_DOCUMENTS: Array<{ docType: DocumentType; label: string; profileDocument?: boolean }> = [
+  { docType: DocumentType.CEDULA, label: 'Cedula', profileDocument: true },
+  { docType: DocumentType.PASAPORTE, label: 'Pasaporte', profileDocument: true },
+  { docType: DocumentType.CARTA_INVITACION, label: 'Invitacion de la actividad' },
+  { docType: DocumentType.FORMULARIO_SOLICITUD_VIAJE, label: 'Formulario de solicitud de viaje' },
+  { docType: DocumentType.CARTA_MINISTRO_ADMINISTRATIVO, label: 'Carta al Ministro Administrativo' },
+]
+
+const DOCUMENT_COMPLETE_STATUSES: DocumentRequirementStatus[] = [
+  DocumentRequirementStatus.UPLOADED,
+  DocumentRequirementStatus.VALIDATED,
+  DocumentRequirementStatus.WAIVED,
+  DocumentRequirementStatus.GENERATED,
+  DocumentRequirementStatus.ENVIADO_COMO_ANEXO_INFORMATIVO,
+]
+
+function validateTransition(action: string, status: CaseStatus) {
+  const allowed = ALLOWED_TRANSITIONS[action]
+  return !allowed || allowed.includes(status)
+}
+
+async function missingDispatchDocuments(caseId: string, profileId: string) {
+  const [requirements, documents] = await Promise.all([
+    prisma.documentRequirement.findMany({ where: { caseId } }),
+    prisma.document.findMany({
+      where: {
+        isCurrent: true,
+        OR: [{ caseId }, { profileId, caseId: null }],
+      },
+    }),
+  ])
+
+  return REQUIRED_DISPATCH_DOCUMENTS.filter(({ docType, profileDocument }) => {
+    const requirement = requirements.find((item) => item.docType === docType)
+    const hasDocument = documents.some((item) => {
+      if (item.docType !== docType) return false
+      if (profileDocument) return item.profileId === profileId || item.caseId === caseId
+      return item.caseId === caseId
+    })
+    const requirementComplete =
+      !!requirement && DOCUMENT_COMPLETE_STATUSES.includes(requirement.status)
+    return !hasDocument && !requirementComplete
+  }).map((item) => item.label)
+}
+
+async function missingCloseDocuments(caseId: string) {
+  const required = [
+    { docType: DocumentType.FORMULARIO_SOLICITUD_VIAJE, label: 'Formulario de solicitud de viaje' },
+    { docType: DocumentType.CARTA_MINISTRO_ADMINISTRATIVO, label: 'Carta al Ministro Administrativo' },
+    { docType: DocumentType.EXPEDIENTE_FIRMADO, label: 'Expediente firmado final' },
+  ]
+  const documents = await prisma.document.findMany({
+    where: {
+      caseId,
+      isCurrent: true,
+      status: { in: DOCUMENT_COMPLETE_STATUSES },
+    },
+    select: { docType: true },
+  })
+  return required
+    .filter((requirement) => !documents.some((document) => document.docType === requirement.docType))
+    .map((requirement) => requirement.label)
+}
+
+function notificationsForWorkflow(action: string, caseRecord: { evento?: string | null; destinoPais?: string | null }) {
+  const subject = caseRecord.evento || caseRecord.destinoPais || 'expediente'
+  const notifications: Partial<Record<string, Array<{ type: any; title: string; message: string }>>> = {
+    MARK_EXPEDIENTE_COMPLETE: [
+      { type: 'EXPEDIENTE_COMPLETE', title: 'Expediente armado', message: `El expediente de ${subject} fue marcado como completo.` },
+    ],
+    SEND_DESPACHO: [
+      { type: 'SENT_TO_DESPACHO', title: 'Expediente enviado a Despacho', message: `El expediente de ${subject} fue enviado a revision de Despacho.` },
+    ],
+    DESPACHO_RETURN: [
+      { type: 'DESPACHO_RETURNED', title: 'Despacho devolvio el expediente', message: `Despacho devolvio el expediente de ${subject} con observaciones.` },
+    ],
+    DESPACHO_APPROVE: [
+      { type: 'DESPACHO_APPROVED', title: 'Despacho aprobo el expediente', message: `Despacho aprobo el expediente de ${subject}.` },
+      { type: 'SENT_TO_CONSEJO', title: 'Expediente enviado a Consejo', message: `El expediente de ${subject} fue enviado al Consejo Directivo para firma.` },
+    ],
+    CONSEJO_SIGN: [
+      { type: 'EXPEDIENTE_SIGNED', title: 'Firma del Consejo registrada', message: `Se registro la firma del Consejo para el expediente de ${subject}.` },
+    ],
+    RECEIVE_SIGNED: [
+      { type: 'SIGNED_EXPEDIENTE_RECEIVED', title: 'Expediente firmado recibido', message: `La Unidad de Viajes confirmo la recepcion del expediente firmado de ${subject}.` },
+    ],
+    MARK_TRAVEL_COMPLETED: [
+      { type: 'TRAVEL_COMPLETED', title: 'Viaje realizado', message: `El viaje de ${subject} fue marcado como realizado.` },
+    ],
+    REQUEST_LIQUIDATION: [
+      { type: 'LIQUIDATION_REQUESTED', title: 'Liquidacion solicitada', message: `Se solicito la liquidacion post-viaje del expediente de ${subject}.` },
+    ],
+    APPROVE_LIQUIDATION: [
+      { type: 'LIQUIDATION_APPROVED', title: 'Liquidacion aprobada', message: `La liquidacion del expediente de ${subject} fue aprobada.` },
+    ],
+    RETURN_LIQUIDATION: [
+      { type: 'LIQUIDATION_RETURNED', title: 'Liquidacion devuelta', message: `La liquidacion del expediente de ${subject} fue devuelta con observaciones.` },
+    ],
+    NO_APLICA_LIQUIDACION: [
+      { type: 'LIQUIDATION_WAIVED', title: 'Liquidacion marcada no aplica', message: `Se registro que no aplica liquidacion para el expediente de ${subject}.` },
+    ],
+    CLOSE: [
+      { type: 'CASE_CLOSED', title: 'Expediente cerrado', message: `El expediente de ${subject} fue cerrado.` },
+    ],
+  }
+  return notifications[action] || []
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -55,6 +186,13 @@ export async function POST(
   })
   if (!caseRecord) return NextResponse.json({ error: 'Case not found' }, { status: 404 })
 
+  if (!validateTransition(action, caseRecord.status)) {
+    return NextResponse.json(
+      { error: 'No se puede ejecutar esta accion desde el estado actual del expediente.' },
+      { status: 409 }
+    )
+  }
+
   try {
     if (action === 'MARK_EXPEDIENTE_COMPLETE') {
       if (!hasPermission(user, 'expedientes:update')) return forbidden()
@@ -68,6 +206,16 @@ export async function POST(
       })
     } else if (action === 'SEND_DESPACHO') {
       if (!hasPermission(user, 'expedientes:send_despacho')) return forbidden()
+      const missing = await missingDispatchDocuments(params.id, caseRecord.profileId)
+      if (missing.length > 0) {
+        return NextResponse.json(
+          {
+            error: `No se puede enviar a despacho. Faltan documentos obligatorios: ${missing.join(', ')}.`,
+            missingDocuments: missing,
+          },
+          { status: 400 }
+        )
+      }
       await prisma.case.update({
         where: { id: params.id },
         data: {
@@ -247,26 +395,13 @@ export async function POST(
       const comment = isFormData ? String((payload as FormData).get('comment') || '') : payload.comment
       if (!comment) return NextResponse.json({ error: 'Comentario de cierre requerido' }, { status: 400 })
 
-      const minimumDocs = await prisma.document.count({
-        where: {
-          caseId: params.id,
-          docType: { in: [DocumentType.FORMULARIO_SOLICITUD_VIAJE, DocumentType.CARTA_MINISTRO_ADMINISTRATIVO, DocumentType.EXPEDIENTE_FIRMADO] },
-        },
-      })
-      if (minimumDocs < 3) {
+      const missing = await missingCloseDocuments(params.id)
+      if (missing.length > 0) {
         return NextResponse.json(
-          { error: 'El expediente debe tener formulario, carta y expediente firmado antes de cerrar' },
-          { status: 400 }
-        )
-      }
-      const closableStatuses: CaseStatus[] = [
-        CaseStatus.LIQUIDACION_APROBADA,
-        CaseStatus.NO_APLICA_LIQUIDACION,
-        CaseStatus.CLOSED,
-      ]
-      if (!closableStatuses.includes(caseRecord.status)) {
-        return NextResponse.json(
-          { error: 'El caso solo puede cerrarse con liquidacion aprobada o no aplica liquidacion' },
+          {
+            error: `El expediente debe tener estos documentos antes de cerrar: ${missing.join(', ')}.`,
+            missingDocuments: missing,
+          },
           { status: 400 }
         )
       }
@@ -275,9 +410,12 @@ export async function POST(
         where: { id: params.id },
         data: { status: CaseStatus.CLOSED, closedAt: new Date(), closureComment: comment },
       })
-      await prisma.caseClosure.create({
-        data: { caseId: params.id, closedByUserId: user.userId, comment },
-      })
+      const existingClosure = await prisma.caseClosure.findFirst({ where: { caseId: params.id } })
+      if (!existingClosure) {
+        await prisma.caseClosure.create({
+          data: { caseId: params.id, closedByUserId: user.userId, comment },
+        })
+      }
     } else {
       return NextResponse.json({ error: 'Accion invalida' }, { status: 400 })
     }
@@ -291,6 +429,18 @@ export async function POST(
         details: { source: 'workflow' },
       },
     })
+
+    const notifications = notificationsForWorkflow(action, caseRecord)
+    for (const notification of notifications) {
+      await prisma.notification.create({
+        data: {
+          caseId: params.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+        },
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

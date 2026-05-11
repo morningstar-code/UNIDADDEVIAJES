@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
-import Image from 'next/image'
+import { labelFor } from '@/lib/labels'
 
 interface Task {
   id: string
@@ -72,37 +72,7 @@ export default function BandejaPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header
-        style={{
-          backgroundColor: 'white',
-          padding: '1rem 2rem',
-          borderBottom: '1px solid #ddd',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Image
-            src="/indotel-logo.jpg"
-            alt="INDOTEL Logo"
-            width={50}
-            height={50}
-            style={{ objectFit: 'contain' }}
-          />
-          <div>
-            <Link
-              href="/dashboard"
-              style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-            >
-              ← Dashboard
-            </Link>
-            <h1 style={{ margin: 0, display: 'inline' }}>Mi Bandeja</h1>
-          </div>
-        </div>
-      </header>
-      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {tasks.length === 0 ? (
           <div
             style={{
@@ -140,7 +110,7 @@ export default function BandejaPage() {
                       {task.case.destinoCiudad && `, ${task.case.destinoCiudad}`}
                     </p>
                     <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                      Paso: {task.step} | Estado: {task.case.status}
+                      Paso: {labelFor(task.step)} | Estado: {labelFor(task.case.status)}
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -162,7 +132,6 @@ export default function BandejaPage() {
             ))}
           </div>
         )}
-      </main>
     </div>
   )
 }

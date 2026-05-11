@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
+import { labelFor } from '@/lib/labels'
 
 interface Requirement {
   id: string
@@ -119,7 +120,7 @@ export default function DesignacionPage() {
     <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', padding: '2rem' }}>
       <main style={{ maxWidth: '900px', margin: '0 auto', backgroundColor: 'white', borderRadius: '10px', padding: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <Image src="/indotel-logo.jpg" alt="INDOTEL Logo" width={80} height={80} style={{ objectFit: 'contain' }} />
+          <Image src="/indotel-logo.svg" alt="INDOTEL Logo" width={80} height={80} style={{ objectFit: 'contain' }} />
           <h1>Designacion de Viaje Institucional</h1>
         </div>
 
@@ -160,7 +161,7 @@ export default function DesignacionPage() {
             {data.case.requirements.map((req) => (
               <div key={req.id} style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}>
                 <strong>{req.label}</strong> {req.required ? <span style={{ color: '#dc3545' }}>*</span> : <span style={{ color: '#666' }}>(opcional)</span>}
-                <p style={{ margin: '0.25rem 0', color: '#666' }}>Estado: {req.status}</p>
+                <p style={{ margin: '0.25rem 0', color: '#666' }}>Estado: {labelFor(req.status)}</p>
                 {canUpload && (
                   <input type="file" onChange={(e) => uploadDocument(req.id, e.target.files?.[0] || null)} />
                 )}
@@ -171,10 +172,10 @@ export default function DesignacionPage() {
 
         <section style={cardStyle}>
           <h2>Post-viaje: informe y liquidacion</h2>
-          <p style={{ color: '#666' }}>Si recibio viaticos o fondos, descargue el formulario y cargue los soportes al finalizar el viaje.</p>
+          <p style={{ color: '#666' }}>Si recibio viaticos o fondos, descargue el formulario institucional generado desde la plantilla oficial y cargue los soportes al finalizar el viaje.</p>
           {data.case.generatedDocuments.some((doc) => ['FORMULARIO_LIQUIDACION_INFORMATIVO', 'FORMULARIO_LIQUIDACION'].includes(doc.type) && doc.document) ? (
             <a href={`/api/designacion/${token}/liquidation-form`} target="_blank" rel="noopener noreferrer" style={linkButton}>
-              Descargar formulario de liquidacion
+              Descargar formulario institucional de liquidacion
             </a>
           ) : (
             <p style={{ color: '#666' }}>La Unidad de Viajes aun no ha generado el formulario de liquidacion.</p>

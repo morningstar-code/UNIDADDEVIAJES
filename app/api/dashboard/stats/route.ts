@@ -25,6 +25,10 @@ export async function GET(request: NextRequest) {
     riskCases,
     amountAgg,
     unreadNotifications,
+    pendingAmparo,
+    returnedByAmparo,
+    outOfMapreDeadline,
+    pendingDocuments,
   ] = await Promise.all([
     prisma.travelMatrixEntry.count(),
     prisma.travelMatrixEntry.count({
@@ -61,6 +65,10 @@ export async function GET(request: NextRequest) {
     prisma.case.count({ where: { fechaSalida: { lte: in30, gte: now }, expedienteCompleto: false } }),
     prisma.case.aggregate({ _sum: { montoEstimado: true } }),
     prisma.notification.count({ where: { OR: [{ userId: user.userId }, { userId: null }], readAt: null } }),
+    prisma.case.count({ where: { status: CaseStatus.PENDIENTE_VALIDACION_AMPARO } }),
+    prisma.case.count({ where: { status: CaseStatus.DEVUELTO_POR_AMPARO } }),
+    prisma.case.count({ where: { status: CaseStatus.FUERA_PLAZO_MAPRE } }),
+    prisma.case.count({ where: { status: CaseStatus.PENDIENTE_DOCUMENTOS } }),
   ])
 
   return NextResponse.json({
@@ -77,5 +85,9 @@ export async function GET(request: NextRequest) {
     riskCases,
     totalEstimatedAmount: Number(amountAgg._sum.montoEstimado || 0),
     unreadNotifications,
+    pendingAmparo,
+    returnedByAmparo,
+    outOfMapreDeadline,
+    pendingDocuments,
   })
 }

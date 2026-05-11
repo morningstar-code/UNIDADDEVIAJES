@@ -1,0 +1,10 @@
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">INDOTEL Logo</title>
+  <desc id="desc">Logo institucional de INDOTEL para la plataforma Unidad de Viajes.</desc>
+  <rect width="240" height="240" rx="36" fill="#ffffff"/>
+  <path d="M120 28c50.81 0 92 41.19 92 92s-41.19 92-92 92-92-41.19-92-92 41.19-92 92-92Z" fill="#0A5EA8"/>
+  <path d="M120 50c38.66 0 70 31.34 70 70s-31.34 70-70 70-70-31.34-70-70 31.34-70 70-70Z" fill="#ffffff"/>
+  <path d="M63 126c31-52 83-54 114-11-33-13-68-6-114 11Z" fill="#7AB800"/>
+  <path d="M65 139c46-24 82-28 116-9-27 34-83 36-116 9Z" fill="#0A5EA8"/>
+  <text x="120" y="116" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" fill="#0A5EA8">INDOTEL</text>
+</svg>

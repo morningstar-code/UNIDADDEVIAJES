@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { uploadAttachmentToBlob } from '@/lib/blob/upload'
-import { DocumentRequirementStatus, DocumentType, CaseStatus, WorkflowStep } from '@prisma/client'
+import { DocumentRequirementStatus, DocumentType, CaseStatus, WorkflowStep, DesignationStatus } from '@prisma/client'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -17,6 +17,28 @@ export async function POST(
 
   if (!designation || designation.tokenExpiresAt < new Date()) {
     return NextResponse.json({ error: 'Designacion no encontrada o expirada' }, { status: 404 })
+  }
+
+  if (designation.status !== DesignationStatus.ACCEPTED) {
+    return NextResponse.json(
+      { error: 'La designacion debe ser aceptada antes de cargar documentos.' },
+      { status: 403 }
+    )
+  }
+
+  const allowedCaseStatuses: CaseStatus[] = [
+    CaseStatus.PENDIENTE_DOCUMENTOS,
+    CaseStatus.DOCUMENTOS_EN_REVISION,
+    CaseStatus.DOCUMENTOS_COMPLETOS,
+    CaseStatus.LIQUIDACION_EN_REVISION,
+    CaseStatus.LIQUIDACION_REQUIERE_CORRECCION,
+    CaseStatus.PENDIENTE_INFORME_Y_LIQUIDACION,
+  ]
+  if (!allowedCaseStatuses.includes(designation.case.status)) {
+    return NextResponse.json(
+      { error: 'El expediente no esta en una etapa que permita cargar documentos.' },
+      { status: 409 }
+    )
   }
 
   const formData = await request.formData()

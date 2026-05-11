@@ -25,14 +25,43 @@ function getAppBaseUrl(request: NextRequest) {
   return process.env.APP_BASE_URL || request.nextUrl.origin
 }
 
+function authorizationBlocksDesignation(caseRecord: {
+  status: CaseStatus
+  travelAuthorization?: { validationStatus: string } | null
+}) {
+  if (caseRecord.travelAuthorization) {
+    return caseRecord.travelAuthorization.validationStatus !== 'VALIDADO_POR_AMPARO'
+  }
+
+  const blockedStatuses: CaseStatus[] = [
+    CaseStatus.AUTORIZACION_RECIBIDA,
+    CaseStatus.INSTRUCCION_RECIBIDA,
+    CaseStatus.PENDIENTE_VALIDACION_AMPARO,
+    CaseStatus.DEVUELTO_POR_AMPARO,
+    CaseStatus.RECHAZADO_POR_AMPARO,
+    CaseStatus.PENDIENTE_CLASIFICACION,
+  ]
+
+  return blockedStatuses.includes(caseRecord.status)
+}
+
 async function getOrCreateDesignation(caseId: string, request: NextRequest) {
   const caseRecord = await prisma.case.findUnique({
     where: { id: caseId },
-    include: { profile: true },
+    include: { profile: true, travelAuthorization: true },
   })
 
   if (!caseRecord) {
     return { error: NextResponse.json({ error: 'Case not found' }, { status: 404 }) }
+  }
+
+  if (authorizationBlocksDesignation(caseRecord)) {
+    return {
+      error: NextResponse.json(
+        { error: 'La autorizacion del viaje debe estar validada por Amparo / RI antes de generar la designacion' },
+        { status: 409 }
+      ),
+    }
   }
 
   if (!caseRecord.profile.primaryEmail) {
@@ -112,11 +141,33 @@ async function getOrCreateInformativeLiquidationDocument(caseId: string, actorUs
 
   if (existing?.document) {
     const workbook = await generateInformativeLiquidationWorkbook(caseRecord)
+    const filename = existing.document.originalFilename || buildInformativeLiquidationFilename(caseRecord)
+    const uploadResult = await uploadAttachmentToBlob({
+      profileId: caseRecord.profileId,
+      caseId,
+      originalFilename: filename,
+      buffer: workbook.buffer,
+      contentType: LIQUIDATION_XLSX_CONTENT_TYPE,
+      docType: DocumentType.FORMULARIO_LIQUIDACION_INFORMATIVO,
+    })
+    const document = await prisma.document.update({
+      where: { id: existing.document.id },
+      data: {
+        originalFilename: filename,
+        mimeType: LIQUIDATION_XLSX_CONTENT_TYPE,
+        sizeBytes: workbook.buffer.length,
+        blobUrl: uploadResult.blobUrl,
+        blobPathname: uploadResult.blobPathname,
+        checksumSha256: uploadResult.checksumSha256,
+        uploadedByUserId: actorUserId,
+        uploadedByName: actorUserId ? undefined : 'Sistema',
+      },
+    })
     return {
       generatedDocument: existing,
-      document: existing.document,
+      document,
       buffer: workbook.buffer,
-      filename: existing.document.originalFilename,
+      filename,
       wasCreated: false,
     }
   }
@@ -186,7 +237,7 @@ async function getOrCreateInformativeLiquidationDocument(caseId: string, actorUs
         filename,
         documentId: document.id,
         usedTemplate: workbook.usedTemplate,
-        needsManualCellMapping: workbook.needsManualCellMapping,
+        mappedCells: workbook.mappedCells,
       },
     },
   })

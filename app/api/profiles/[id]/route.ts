@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser } from '@/lib/middleware/auth'
+import { getAuthorizedUser } from '@/lib/auth/permissions'
 import { prisma } from '@/lib/db/prisma'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const authUser = await getAuthUser(request)
-  if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { user, response } = await getAuthorizedUser(request, 'profiles:read')
+  if (!user) return response!
 
   const profile = await prisma.profile.findUnique({
     where: { id: params.id },
@@ -22,9 +20,16 @@ export async function GET(
           originalFilename: true,
           blobUrl: true,
           mimeType: true,
+          source: true,
+          expirationDate: true,
+          visaCountry: true,
+          sharePointWebUrl: true,
           createdAt: true,
         },
         orderBy: { createdAt: 'desc' },
+      },
+      externalDocuments: {
+        orderBy: { syncedAt: 'desc' },
       },
       cases: {
         select: {

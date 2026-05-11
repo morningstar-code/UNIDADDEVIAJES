@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import Link from 'next/link'
-import Image from 'next/image'
 
 interface Profile {
   id: string
@@ -17,6 +16,7 @@ interface Profile {
   cargo: string | null
   casesCount: number
   documentsCount: number
+  externalDocumentsCount?: number
   totalAmount: number
 }
 
@@ -66,37 +66,7 @@ export default function ProfilesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <header
-        style={{
-          backgroundColor: 'white',
-          padding: '1rem 2rem',
-          borderBottom: '1px solid #ddd',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Image
-            src="/indotel-logo.jpg"
-            alt="INDOTEL Logo"
-            width={50}
-            height={50}
-            style={{ objectFit: 'contain' }}
-          />
-          <div>
-            <Link
-              href="/dashboard"
-              style={{ color: '#0066cc', textDecoration: 'none', marginRight: '1rem' }}
-            >
-              ← Dashboard
-            </Link>
-            <h1 style={{ margin: 0, display: 'inline' }}>Perfiles</h1>
-          </div>
-        </div>
-      </header>
-      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <form onSubmit={handleSearch} style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <input
@@ -228,6 +198,11 @@ export default function ProfilesPage() {
                         <span style={{ fontSize: '0.85rem' }}>📄</span>
                         {profile.documentsCount} doc{profile.documentsCount !== 1 ? 's' : ''}
                       </span>
+                      {(profile.externalDocumentsCount || 0) > 0 && (
+                        <span style={{ fontSize: '0.9rem', color: '#198754', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          SharePoint: {profile.externalDocumentsCount}
+                        </span>
+                      )}
                     </div>
                     {profile.totalAmount > 0 && (
                       <span
@@ -250,7 +225,6 @@ export default function ProfilesPage() {
             ))}
           </div>
         )}
-      </main>
     </div>
   )
 }

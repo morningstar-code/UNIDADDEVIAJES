@@ -68,6 +68,19 @@ export async function PATCH(
       },
     })
 
+    if (action === 'REJECT') {
+      await prisma.notification.create({
+        data: {
+          caseId: params.id,
+          type: 'DOCUMENT_REJECTED',
+          title: 'Documento rechazado',
+          message: observations
+            ? `Un documento fue rechazado: ${observations}`
+            : 'Un documento fue rechazado y requiere correccion.',
+        },
+      })
+    }
+
     return NextResponse.json(requirement)
   } catch (error) {
     console.error('Requirement action error:', error)

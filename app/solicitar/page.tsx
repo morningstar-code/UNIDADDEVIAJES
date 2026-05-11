@@ -350,13 +350,13 @@ export default function SolicitarPage() {
         }}
       >
         <Image
-          src="/indotel-logo.jpg"
+          src="/indotel-logo.svg"
           alt="INDOTEL Logo"
           width={60}
           height={60}
           style={{ objectFit: 'contain' }}
         />
-        <h1 style={{ margin: 0 }}>INDOTEL - Solicitud de Viaje</h1>
+        <h1 style={{ margin: 0 }}>INDOTEL - Propuesta / solicitud de viaje</h1>
       </header>
 
       <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
@@ -376,7 +376,7 @@ export default function SolicitarPage() {
               2. Datos del Viaje
             </span>
             <span style={{ fontWeight: step >= 3 ? 'bold' : 'normal' }}>
-              3. Datos Administrativos
+              3. Información opcional
             </span>
             <span style={{ fontWeight: step >= 4 ? 'bold' : 'normal' }}>
               4. Documentos
@@ -846,15 +846,18 @@ export default function SolicitarPage() {
           </div>
         )}
 
-        {/* Step 3: Administrative Data */}
+        {/* Step 3: Optional Data */}
         {step === 3 && (
           <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px' }}>
-            <h2 style={{ marginTop: 0 }}>Datos Administrativos</h2>
+            <h2 style={{ marginTop: 0 }}>Información complementaria opcional</h2>
+            <p style={{ color: '#666', marginTop: 0 }}>
+              Este formulario es una propuesta o solicitud inicial. La Unidad de Viajes validará la autorización institucional, viáticos, montos y datos administrativos antes de avanzar.
+            </p>
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                    Monto Estimado
+                    Monto estimado, si lo conoce
                   </label>
                   <input
                     type="number"
@@ -891,7 +894,7 @@ export default function SolicitarPage() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                  Centro de Costo
+                  Centro de costo, si aplica
                 </label>
                 <input
                   type="text"
@@ -1021,7 +1024,7 @@ export default function SolicitarPage() {
                           </option>
                           <option value={DocumentType.AGENDA}>Agenda</option>
                           <option value={DocumentType.MEMO_APROBACION}>
-                            Memo de Aprobación
+                            Autorización o soporte institucional, si ya lo posee
                           </option>
                           <option value={DocumentType.OTRO}>Otro</option>
                         </select>
